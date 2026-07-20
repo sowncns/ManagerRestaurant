@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0e0c0a;
+  --color-charcoal: #17130f;
+  --color-gold: #c9a45c;
+  --color-gold-soft: #e3c98a;
+  --color-cream: #f4efe6;
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-ink);
+    color: var(--color-cream);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+  }
+}
+
+/* Ẩn thanh cuộn ngang cho các dải cuộn */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
