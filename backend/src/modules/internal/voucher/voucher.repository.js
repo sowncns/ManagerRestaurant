@@ -147,6 +147,11 @@ exports.getCustomerIdsByBirthMonth = (month) =>
     .query("SELECT customer_id FROM customers WHERE EXTRACT(MONTH FROM dob) = $1", [month])
     .then((r) => r.rows.map((x) => x.customer_id));
 
+exports.getAllCustomerIds = () =>
+  pool
+    .query("SELECT customer_id FROM customers")
+    .then((r) => r.rows.map((x) => x.customer_id));
+
 exports.countUnusedForCustomer = (client, templateId, customerId) =>
   client
     .query(

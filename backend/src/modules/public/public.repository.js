@@ -86,3 +86,9 @@ exports.findMenuItemById = (menuItemId) =>
       [menuItemId]
     )
     .then((r) => r.rows[0]);
+
+// ---------------- Home banners (anh trang chu) ----------------
+exports.listHomeBanners = () =>
+  pool
+    .query("SELECT banner_id AS id, image_url, type FROM home_banners ORDER BY type, sort_order, banner_id")
+    .then((r) => r.rows);

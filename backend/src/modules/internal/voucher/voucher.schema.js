@@ -63,11 +63,12 @@ const assignSchema = z
     customerIds: z.array(z.number().int().positive()).nonempty().optional(),
     rank: z.string().trim().min(1).optional(),
     birthMonth: z.number().int().min(1).max(12).optional(),
+    all_customers: z.boolean().optional(),
     reason: z.string().trim().optional(),
   })
   .refine(
-    (d) => (d.customerIds ? 1 : 0) + (d.rank ? 1 : 0) + (d.birthMonth ? 1 : 0) === 1,
-    { message: "Cung cấp đúng một trong customerIds, rank hoặc birthMonth" }
+    (d) => (d.customerIds ? 1 : 0) + (d.rank ? 1 : 0) + (d.birthMonth ? 1 : 0) + (d.all_customers ? 1 : 0) === 1,
+    { message: "Cung cấp đúng một trong customerIds, rank, birthMonth hoặc all_customers" }
   );
 
 module.exports = { createVoucherSchema, updateVoucherSchema, assignSchema, DISCOUNT_TYPES, STATUSES, APPLY_SCOPES };

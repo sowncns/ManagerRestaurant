@@ -196,26 +196,49 @@ async function cancelCheckoutIntent(tableId) {
 }
 
 // ---- Voucher ----
-async function validateVoucher(code, orderTotal, tableId) {
+// Tim khach theo ID hoac SDT (dung khi quet QR member hoac thu ngan nhap tay).
+async function resolveCustomerRef(ref) {
+  const numeric = parseInt(ref, 10);
+  const r = await pool.query(
+    "SELECT customer_id FROM customers WHERE customer_id = $1 OR phone = $2 LIMIT 1",
+    [isNaN(numeric) ? null : numeric, ref]
+  );
+  if (!r.rows.length) throw new NotFound("Không tìm thấy khách hàng với ID hoặc SĐT này.");
+  return r.rows[0].customer_id;
+}
+
+async function validateVoucher(code, orderTotal, tableId, customerRef) {
   let actualCode = code;
   let customerId = null;
 
-  // Format tuy chon: CUSTOMERID-VOUCHERCODE (vd 12-WELCOME50)
-  if (code.includes("-") && !code.startsWith("VOUCHER")) {
+  const trimmed = String(code).trim();
+  if (customerRef != null && String(customerRef).trim() !== "") {
+    // Nhap tay khi khong quet duoc: thu ngan nhap SDT/ID khach so huu voucher.
+    customerId = await resolveCustomerRef(String(customerRef).trim());
+  } else if (code.includes("-") && !code.startsWith("VOUCHER")) {
+    // Tu QR: CUSTOMERID-VOUCHERCODE (vd 12-WELCOME50)
     const parts = code.split("-");
     customerId = parseInt(parts[0], 10);
     actualCode = parts.slice(1).join("-");
+  } else {
+    // Ma go tay NGAN, ephemeral (Redis, song 120s cung QR). Da gan san khach + voucher.
+    const ref = await qrService.resolveScanCode(trimmed);
+    if (!ref || ref.type !== "VOUCHER") throw new BadRequest("Mã voucher không hợp lệ hoặc đã hết hạn.");
+    customerId = ref.customerId;
+    actualCode = ref.voucherCode;
   }
 
   const voucher = await repo.findVoucherTemplate(actualCode);
   if (!voucher) throw new BadRequest("Mã voucher không hợp lệ, không có hiệu lực hoặc đã hết hạn.");
 
-  let customerVoucherId = null;
-  if (customerId && !isNaN(customerId)) {
-    const cv = await repo.findCustomerVoucher(customerId, voucher.id);
-    if (!cv) throw new BadRequest("Bạn không sở hữu voucher này hoặc voucher đã được sử dụng.");
-    customerVoucherId = cv.id;
+  // Bat buoc: voucher phai thuoc so huu cua 1 khach cu the. Chi ap dung khi da xac dinh
+  // khach (quet QR khach hoac gui kem customerId) va khach do dang so huu voucher (chua dung).
+  if (!customerId || isNaN(customerId)) {
+    throw new BadRequest("Vui lòng quét QR khách hàng sở hữu voucher để áp dụng.");
   }
+  const cv = await repo.findCustomerVoucher(customerId, voucher.id);
+  if (!cv) throw new BadRequest("Khách không sở hữu voucher này hoặc voucher đã được sử dụng.");
+  const customerVoucherId = cv.id;
 
   if (parseFloat(voucher.min_order_amount) > orderTotal) {
     throw new BadRequest(
@@ -250,18 +273,14 @@ async function validateVoucher(code, orderTotal, tableId) {
 // Resolve token QR -> gan voucher (kem khach) hoac chi gan khach vao ban.
 async function scanCustomerQR(tableId, token) {
   let data;
-  if (!token.startsWith("QRS-")) {
-    const numericToken = parseInt(token, 10);
-    const customer = await pool.query(
-      "SELECT customer_id FROM customers WHERE customer_id = $1 OR phone = $2 LIMIT 1",
-      [isNaN(numericToken) ? null : numericToken, token]
-    );
-    if (!customer.rows.length) {
-      throw new NotFound("Không tìm thấy khách hàng với ID hoặc SĐT này.");
-    }
-    data = { type: "MEMBER", customerId: customer.rows[0].customer_id };
-  } else {
+  if (token.startsWith("QRS-")) {
     data = await qrService.resolveScanToken(token); // { type, customerId, voucherCode? }
+  } else {
+    // Thu ma go tay ngan (ephemeral) truoc; khong co thi coi la SDT/ID member.
+    data = await qrService.resolveScanCode(token);
+    if (!data) {
+      data = { type: "MEMBER", customerId: await resolveCustomerRef(token) };
+    }
   }
 
   // Replaced above
@@ -353,6 +372,13 @@ async function getLatestInvoice(tableId) {
 const MANAGER_ROLES = new Set(["BRANCH_MANAGER", "COMPANY_ADMIN", "SUPER_ADMIN"]);
 const CLOSED_ORDER = new Set(["COMPLETED", "CANCELLED"]);
 
+// Chot chong gian lan chung: thao tac lam bill giam >= nguong (dong) can quan ly thuc hien.
+function assertReduceAllowed(user, removedAmount, threshold, label) {
+  const t = Number(threshold) || 0;
+  if (t > 0 && removedAmount >= t && !MANAGER_ROLES.has(user.role)) {
+    throw new BadRequest(`${label} giá trị ≥ ${t.toLocaleString("vi-VN")}đ cần quản lý thực hiện`);
+  }
+}
 
 async function discountItem(user, orderItemId, { discount_percent, note }) {
   const client = await pool.connect();
@@ -365,6 +391,8 @@ async function discountItem(user, orderItemId, { discount_percent, note }) {
     }
     if (item.billing_status === "VOIDED") throw new BadRequest("Món đã bị void, không thể giảm giá");
 
+    const removed = Number(item.unit_price) * item.quantity * (Number(discount_percent) / 100);
+    assertReduceAllowed(user, removed, item.void_pin_threshold, "Giảm giá");
     await repo.setItemDiscount(client, orderItemId, discount_percent);
     await client.query("COMMIT");
     const lineBase = Number(item.unit_price) * item.quantity;
@@ -394,12 +422,7 @@ async function voidItem(user, orderItemId, { reason_code, note }) {
     if (item.billing_status === "VOIDED") throw new BadRequest("Món đã được void trước đó");
 
     const amount = Number(item.total_price) || Number(item.unit_price) * item.quantity;
-    const threshold = Number(item.void_pin_threshold) || 0;
-    if (threshold > 0 && amount >= threshold && !MANAGER_ROLES.has(user.role)) {
-      throw new BadRequest(
-        `Void giá trị ≥ ${threshold.toLocaleString("vi-VN")}đ cần quản lý thực hiện`
-      );
-    }
+    assertReduceAllowed(user, amount, item.void_pin_threshold, "Void");
 
     await repo.setItemVoided(client, orderItemId, user.employee_id || user.id);
     await client.query("COMMIT");
@@ -408,6 +431,46 @@ async function voidItem(user, orderItemId, { reason_code, note }) {
       billing_status: "VOIDED",
       voided_amount: amount,
       reason_code,
+      note: note || null,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Thu ngan giam so luong 1 mon (vd bep lam du, khach chi lay bot). Muon bo het thi Void.
+// ponytail: chi tinh tien (giam quantity + total_price), khong truy vet hao hut kho.
+async function reduceQuantity(user, orderItemId, { quantity, note }) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const item = await repo.lockOrderItemForVoid(client, orderItemId, user.company_id, user.branch_id);
+    if (!item) throw new NotFound("Không tìm thấy món trong đơn");
+    if (CLOSED_ORDER.has(item.order_status)) {
+      throw new BadRequest("Đơn đã đóng/thanh toán — không thể giảm số lượng");
+    }
+    if (item.billing_status === "VOIDED") throw new BadRequest("Món đã bị void");
+
+    const newQty = Number(quantity);
+    if (!Number.isInteger(newQty) || newQty < 1) throw new BadRequest("Số lượng mới phải ≥ 1");
+    if (newQty >= item.quantity) {
+      throw new BadRequest("Số lượng mới phải nhỏ hơn hiện tại (muốn bỏ hết thì Void)");
+    }
+
+    const removed = Number(item.unit_price) * (item.quantity - newQty);
+    assertReduceAllowed(user, removed, item.void_pin_threshold, "Giảm số lượng");
+
+    const newTotal = Number(item.unit_price) * newQty;
+    await repo.setItemQuantity(client, orderItemId, newQty, newTotal);
+    await client.query("COMMIT");
+    return {
+      order_item_id: orderItemId,
+      quantity: newQty,
+      removed_quantity: item.quantity - newQty,
+      removed_amount: removed,
       note: note || null,
     };
   } catch (err) {
@@ -444,4 +507,5 @@ module.exports = {
   getLatestInvoice,
   voidItem,
   discountItem,
+  reduceQuantity,
 };

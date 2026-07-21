@@ -32,6 +32,20 @@ exports.discountItem = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+exports.reduceQuantity = asyncHandler(async (req, res) => {
+  const orderItemId = Number(req.params.order_item_id);
+  if (!Number.isInteger(orderItemId) || orderItemId <= 0) throw new BadRequest("order item id không hợp lệ");
+  const result = await service.reduceQuantity(req.user, orderItemId, req.body);
+  audit.record(audit.ctx(req), {
+    action: "REDUCE_ITEM_QTY",
+    entityType: "ORDER_ITEM",
+    entityId: orderItemId,
+    description: `Thu ngân giảm số lượng còn ${result.quantity} (−${(result.removed_amount || 0).toLocaleString("vi-VN")}đ)`,
+    metadata: { removed_quantity: result.removed_quantity, removed_amount: result.removed_amount, note: result.note },
+  });
+  res.json(result);
+});
+
 exports.createInvoice = asyncHandler(async (req, res) => {
   const { tableId, paymentMethod, customerId } = req.body;
   const result = await service.createInvoice(req.user, tableId, paymentMethod, customerId);
@@ -55,8 +69,8 @@ exports.cancelCheckoutIntent = asyncHandler(async (req, res) => {
 });
 
 exports.validateVoucher = asyncHandler(async (req, res) => {
-  const { code, orderTotal, tableId } = req.body;
-  const result = await service.validateVoucher(code, orderTotal, tableId);
+  const { code, orderTotal, tableId, customerRef } = req.body;
+  const result = await service.validateVoucher(code, orderTotal, tableId, customerRef);
   res.json({ message: "Áp dụng voucher thành công", data: result });
 });
 

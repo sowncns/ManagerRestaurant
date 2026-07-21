@@ -26,6 +26,7 @@ const internalCashbackRoute = require("../modules/internal/cashback/cashback.rou
 const internalVoucherRoute = require("../modules/internal/voucher/voucher.route");
 const internalCustomerRoute = require("../modules/internal/customer/customer.route");
 const internalComboRoute = require("../modules/internal/combo/combo.route");
+const internalHomeBannerRoute = require("../modules/internal/home_banner/home_banner.route");
 
 const qrCustomerRoute = require("../modules/qr_payment/qr_payment.customer.route");
 const qrInternalRoute = require("../modules/qr_payment/qr_payment.internal.route");
@@ -66,6 +67,7 @@ router.use("/internal/cashback-rates", internalCashbackRoute);
 router.use("/internal/vouchers", internalVoucherRoute);
 router.use("/internal/customers", internalCustomerRoute);
 router.use("/internal/combos", internalComboRoute);
+router.use("/internal/home-banners", internalHomeBannerRoute);
 router.use("/internal/qr-payment", qrInternalRoute);
 
 router.use("/public", publicRoute);

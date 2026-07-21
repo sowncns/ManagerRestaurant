@@ -4,7 +4,7 @@ const controller = require("./checkout.controller");
 const { requireAuth } = require("../../../shared/middlewares/auth.middleware");
 const { authorize } = require("../../../shared/middlewares/role.middleware");
 const { validate } = require("../../../shared/middlewares/validate.middleware");
-const { createInvoiceSchema, validateVoucherSchema, scanSchema, voidItemSchema, discountItemSchema } = require("./checkout.schema");
+const { createInvoiceSchema, validateVoucherSchema, scanSchema, voidItemSchema, discountItemSchema, reduceQuantitySchema } = require("./checkout.schema");
 
 const router = express.Router();
 
@@ -32,6 +32,9 @@ router.post("/items/:order_item_id/void", cashierUp, validate(voidItemSchema), c
 
 // Thu ngan giam gia rieng 1 mon (theo %) cho khach
 router.post("/items/:order_item_id/discount", cashierUp, validate(discountItemSchema), controller.discountItem);
+
+// Thu ngan giam so luong 1 mon (bep lam du / khach lay bot)
+router.post("/items/:order_item_id/reduce-quantity", cashierUp, validate(reduceQuantitySchema), controller.reduceQuantity);
 
 // Kiem mon (pre-bill: mon + gia goc + VAT, khong thu tien) - phuc vu & thu ngan
 router.get("/table/:tableId/kiem-mon", staffUp, controller.getKiemMon);

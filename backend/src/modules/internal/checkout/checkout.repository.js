@@ -74,6 +74,12 @@ exports.setItemDiscount = (client, orderItemId, discountPercent) =>
     [orderItemId, discountPercent]
   );
 
+exports.setItemQuantity = (client, orderItemId, quantity, totalPrice) =>
+  client.query(
+    "UPDATE order_items SET quantity = $2, total_price = $3 WHERE order_item_id = $1",
+    [orderItemId, quantity, totalPrice]
+  );
+
 exports.setItemVoided = (client, orderItemId, voidedBy) =>
   client.query(
     `UPDATE order_items SET billing_status = 'VOIDED', voided_by = $2, voided_at = NOW()

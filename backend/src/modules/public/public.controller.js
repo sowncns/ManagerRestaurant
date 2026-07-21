@@ -46,3 +46,8 @@ exports.getMenuItem = asyncHandler(async (req, res) => {
   const item = await service.getMenuItemDetail(req.params.menuItemId);
   res.json({ message: "Lấy thông tin món ăn thành công", item });
 });
+
+exports.listHomeBanners = asyncHandler(async (req, res) => {
+  const banners = await service.getHomeBanners();
+  res.json({ message: "Lấy ảnh trang chủ thành công", banners });
+});

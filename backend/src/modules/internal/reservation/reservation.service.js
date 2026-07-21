@@ -148,6 +148,11 @@ exports.update = async (currentUser, id, data) => {
   if (data.table_id !== undefined && data.table_id !== null) {
     await assertTableInBranch(data.table_id, reservation.branch_id);
   }
+  // Doi ngay/gio hen -> danh dau de bep thay canh bao tren don dat mon truoc.
+  // Co tu clear khi bep duyet/huy (don roi khoi danh sach SCHEDULED).
+  if (data.reservation_date !== undefined || data.reservation_time !== undefined) {
+    data.rescheduled_at = new Date();
+  }
   await repo.update(id, data);
   return repo.findById(id);
 };

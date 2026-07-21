@@ -97,7 +97,7 @@ exports.findPreordersWithTable = (companyId, branchId) =>
     .query(
       `SELECT o.order_id, o.reservation_id, o.table_id,
               dt.table_number,
-              r.reservation_date, r.reservation_time, r.customer_name,
+              r.reservation_date, r.reservation_time, r.customer_name, r.rescheduled_at,
               COALESCE(
                 json_agg(
                   json_build_object('item_name', oi.item_name, 'quantity', oi.quantity, 'note', oi.note)
@@ -111,7 +111,7 @@ exports.findPreordersWithTable = (companyId, branchId) =>
        LEFT JOIN order_items oi ON oi.order_id = o.order_id
        WHERE o.status = 'SCHEDULED' AND o.table_id IS NOT NULL
          AND o.company_id = $1 AND o.branch_id = $2
-       GROUP BY o.order_id, dt.table_number, r.reservation_date, r.reservation_time, r.customer_name
+       GROUP BY o.order_id, dt.table_number, r.reservation_date, r.reservation_time, r.customer_name, r.rescheduled_at
        ORDER BY r.reservation_date, r.reservation_time`,
       [companyId, branchId]
     )

@@ -23,4 +23,7 @@ router.get("/companies/:companyId/categories", controller.listCategories);
 router.get("/companies/:companyId/menu", controller.getMenu);
 router.get("/menu-items/:menuItemId", controller.getMenuItem);
 
+// Anh trang chu (slide + "Hom nay an gi")
+router.get("/home-banners", controller.listHomeBanners);
+
 module.exports = router;

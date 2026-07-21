@@ -55,7 +55,7 @@ exports.deactivate = async (currentUser, id) => {
   return repo.deactivate(id);
 };
 
-exports.assign = async (currentUser, id, { customerIds, rank, birthMonth, reason }) => {
+exports.assign = async (currentUser, id, { customerIds, rank, birthMonth, all_customers, reason }) => {
   const v = await repo.findById(id);
   if (!v) throw new NotFound("Không tìm thấy voucher");
   assertOwnVoucher(currentUser, v);
@@ -65,6 +65,7 @@ exports.assign = async (currentUser, id, { customerIds, rank, birthMonth, reason
   let targets = customerIds;
   if (!targets && rank) targets = await repo.getCustomerIdsByRank(rank);
   if (!targets && birthMonth) targets = await repo.getCustomerIdsByBirthMonth(birthMonth);
+  if (!targets && all_customers) targets = await repo.getAllCustomerIds();
   if (!targets || !targets.length) return { issued: 0, skipped: 0 };
 
   const assignedBy = currentUser.employee_id || currentUser.id;

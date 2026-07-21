@@ -56,3 +56,6 @@ exports.getMenuItemDetail = async (menuItemId) => {
   if (!item) throw new NotFound("Món ăn không tồn tại");
   return item;
 };
+
+// Anh trang chu (slide type=1, "Hom nay an gi" type=2). Cong khai, khong can dang nhap.
+exports.getHomeBanners = () => repo.listHomeBanners();

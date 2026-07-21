@@ -13,6 +13,7 @@ const validateVoucherSchema = z.object({
   code: z.string().min(1, "Thiếu mã voucher"),
   orderTotal: z.coerce.number().nonnegative("Thiếu tổng tiền"),
   tableId: z.coerce.number().int().positive().optional(),
+  customerRef: z.string().trim().optional(), // SDT/ID khach khi nhap tay (khong quet duoc)
 });
 
 const scanSchema = z.object({
@@ -30,4 +31,9 @@ const discountItemSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
-module.exports = { createInvoiceSchema, validateVoucherSchema, scanSchema, voidItemSchema, discountItemSchema };
+const reduceQuantitySchema = z.object({
+  quantity: z.coerce.number().int().positive("Số lượng phải ≥ 1"),
+  note: z.string().max(500).optional(),
+});
+
+module.exports = { createInvoiceSchema, validateVoucherSchema, scanSchema, voidItemSchema, discountItemSchema, reduceQuantitySchema };

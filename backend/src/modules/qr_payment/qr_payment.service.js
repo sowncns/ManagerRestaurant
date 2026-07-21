@@ -11,12 +11,14 @@ const {
   addPointsAndProcessRank,
 } = require("../customer/profile/profile.service");
 const { BadRequest, NotFound } = require("../../shared/errors/AppError");
+const { genRedeemCode } = require("../../shared/utils/redeemCode");
 const logger = require("../../shared/utils/logger");
 
 const REQ_KEY = (id) => `qr_payment_req_id:${id}`;
 const PENDING_KEY = (cid) => `qr_payment_pending_cust:${cid}`;
 const TOKEN_KEY = (tok) => `payment_token:${tok}`;
 const SCAN_KEY = (tok) => `qr_scan:${tok}`;
+const SCAN_CODE_KEY = (c) => `qr_scan_code:${String(c).trim().toUpperCase()}`;
 const SCAN_TTL = 120; // giay
 const INTENT_KEY = (tid) => `checkout_intent_table_${tid}`;
 
@@ -99,8 +101,20 @@ exports.generateScanToken = async (customerId, { kind, customerVoucherId }) => {
   }
 
   const token = `QRS-${randomUUID()}`;
-  await redisClient.set(SCAN_KEY(token), JSON.stringify(payload), { EX: SCAN_TTL });
-  return { token, expiresIn: SCAN_TTL };
+  const data = JSON.stringify(payload);
+  await redisClient.set(SCAN_KEY(token), data, { EX: SCAN_TTL });
+
+  // Voucher: kem ma go tay NGAN, ephemeral (song/chet cung QR 120s) de nhan vien go khi
+  // khong quet duoc. Member khong can (nhan vien go SDT/ID khach). Retry neu trung ma dang song.
+  let code = null;
+  if (kind === "voucher") {
+    for (let i = 0; i < 5; i++) {
+      const c = genRedeemCode(6);
+      const ok = await redisClient.set(SCAN_CODE_KEY(c), data, { EX: SCAN_TTL, NX: true });
+      if (ok) { code = c; break; }
+    }
+  }
+  return { token, code, expiresIn: SCAN_TTL };
 };
 
 // Nhan vien quet: doc token, xoa ngay (dung 1 lan), tra du lieu da giai ma.
@@ -108,6 +122,16 @@ exports.resolveScanToken = async (token) => {
   const dataStr = await redisClient.get(SCAN_KEY(token));
   if (!dataStr) throw new NotFound("Mã QR không hợp lệ hoặc đã hết hạn.");
   await redisClient.del(SCAN_KEY(token));
+  return JSON.parse(dataStr);
+};
+
+// Nhan vien go ma ngan (fallback khi khong quet duoc): doc + xoa (dung 1 lan).
+// Tra null neu khong co -> caller coi la SDT/ID member.
+exports.resolveScanCode = async (code) => {
+  const key = SCAN_CODE_KEY(code);
+  const dataStr = await redisClient.get(key);
+  if (!dataStr) return null;
+  await redisClient.del(key);
   return JSON.parse(dataStr);
 };
 
