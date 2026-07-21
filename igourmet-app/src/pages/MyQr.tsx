@@ -66,7 +66,7 @@ const MyQr = () => {
           
           <div className="mt-8 pt-6 border-t border-gray-100">
             <h3 className="font-bold text-gray-800 text-lg mb-1">{user?.full_name || 'Khách hàng'}</h3>
-            <p className="text-sm text-gray-500">{user?.phone || user?.email || 'Thành viên iGourmet'}</p>
+            <p className="text-sm text-gray-500">{user?.phone || 'Thành viên iGourmet'}</p>
             {user?.id && (
               <p className="mt-2 inline-block px-3 py-1 bg-gray-100 rounded-lg text-xs font-mono text-gray-600 tracking-wider">
                 ID: {String(user.id).padStart(6, '0')}

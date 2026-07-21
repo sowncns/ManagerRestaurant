@@ -38,6 +38,8 @@ const VoucherModal = ({ isOpen, onClose }: VoucherModalProps) => {
 
   // QR token 1 lần cho nhân viên quét (gắn khách -> cashback + tích điểm khi thanh toán)
   const [scanToken, setScanToken] = useState<string | null>(null);
+  // Mã gõ tay NGẮN, ephemeral: sống/chết cùng QR (120s), fallback khi không quét được.
+  const [redeemCode, setRedeemCode] = useState<string | null>(null);
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenError, setTokenError] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
@@ -47,6 +49,7 @@ const VoucherModal = ({ isOpen, onClose }: VoucherModalProps) => {
   const openVoucher = async (v: Voucher) => {
     setSelectedVoucher(v);
     setScanToken(null);
+    setRedeemCode(null);
     setTokenError('');
     setTimeLeft(0);
     setTokenLoading(true);
@@ -56,6 +59,7 @@ const VoucherModal = ({ isOpen, onClose }: VoucherModalProps) => {
         customerVoucherId: v.customer_voucher_id,
       });
       setScanToken(res.token);
+      setRedeemCode(res.code ?? null);
       setTimeLeft(res.expiresIn || 120);
     } catch (err: any) {
       setTokenError(err.response?.data?.message || 'Không thể tạo mã QR voucher.');
@@ -67,6 +71,7 @@ const VoucherModal = ({ isOpen, onClose }: VoucherModalProps) => {
   const closeVoucher = () => {
     setSelectedVoucher(null);
     setScanToken(null);
+    setRedeemCode(null);
     setTokenError('');
     setTimeLeft(0);
   };
@@ -235,8 +240,19 @@ const VoucherModal = ({ isOpen, onClose }: VoucherModalProps) => {
             </div>
 
             {scanToken && timeLeft > 0 && (
-              <p className="text-sm font-bold text-[#00a662] mb-2">Hết hạn sau {timeLeft}s</p>
+              <p className="text-center text-sm font-bold text-[#00a662] mb-2">Hết hạn sau {timeLeft}s</p>
             )}
+
+            {/* Ma go tay ngan, ephemeral: het han cung QR (120s). Chi hien khi con hieu luc. */}
+            {redeemCode && timeLeft > 0 && (
+              <div className="text-center mb-3">
+                <p className="text-xs text-gray-500 mb-1">Không quét được? Đọc mã này cho nhân viên nhập:</p>
+                <span className="inline-block font-mono text-2xl font-bold text-gray-900 tracking-widest bg-gray-100 px-4 py-1.5 rounded-lg select-all">
+                  {redeemCode}
+                </span>
+              </div>
+            )}
+
             <p className="text-sm text-gray-600 font-medium text-center px-2">
               Đưa mã QR này cho nhân viên phục vụ hoặc thu ngân để áp dụng giảm giá — bạn cũng được tích điểm & cashback khi thanh toán.
             </p>

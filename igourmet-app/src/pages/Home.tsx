@@ -19,6 +19,9 @@ const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [promotions] = useState<any[]>([]);
+  // Ảnh trang chủ do super admin quản lý (type 1 = slide, 2 = hôm nay ăn gì).
+  const [slideImages, setSlideImages] = useState<string[]>([]);
+  const [todayImages, setTodayImages] = useState<string[]>([]);
   const { user } = useAuth();
   const [balance, setBalance] = useState<number>(0);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -60,12 +63,31 @@ const Home = () => {
 
 
 
+  // Ảnh slide thực tế: ưu tiên ảnh admin cấu hình, không có thì dùng ảnh mặc định.
+  const slides = slideImages.length > 0
+    ? slideImages.map((image) => ({ image, title: null as null | { vi: string }, desc: null as null | { vi: string } }))
+    : HERO_SLIDES;
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const res: any = await api.get('/public/home-banners');
+        const banners: any[] = res.banners || [];
+        setSlideImages(banners.filter((b) => b.type === 1).map((b) => b.image_url));
+        setTodayImages(banners.filter((b) => b.type === 2).map((b) => b.image_url));
+      } catch (err) {
+        console.error('Lỗi tải ảnh trang chủ:', err);
+      }
+    };
+    fetchBanners();
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   useEffect(() => {
     const fetchVouchers = async () => {
@@ -152,26 +174,30 @@ const Home = () => {
           className="flex h-full w-full transition-transform duration-700 ease-in-out"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
-          {HERO_SLIDES.map((slide, index) => (
-            <div 
+          {slides.map((slide, index) => (
+            <div
               key={index}
               className="w-full h-full flex-shrink-0 relative"
             >
               <img src={slide.image} alt="Banner" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-8 sm:p-12">
-                <h2 className="text-white text-3xl sm:text-5xl font-bold mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                  {slide.title.vi}
-                </h2>
-                <p className="text-gray-200 text-lg sm:text-xl transform translate-y-4 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100">
-                  {slide.desc.vi}
-                </p>
+                {slide.title && (
+                  <h2 className="text-white text-3xl sm:text-5xl font-bold mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                    {slide.title.vi}
+                  </h2>
+                )}
+                {slide.desc && (
+                  <p className="text-gray-200 text-lg sm:text-xl transform translate-y-4 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100">
+                    {slide.desc.vi}
+                  </p>
+                )}
               </div>
             </div>
           ))}
         </div>
         {/* Dots Navigation */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-          {HERO_SLIDES.map((_, idx) => (
+          {slides.map((_, idx) => (
             <button 
               key={idx}
               onClick={() => setCurrentSlide(idx)}
@@ -235,7 +261,7 @@ const Home = () => {
       <div>
         <h3 className="text-2xl font-bold text-gray-800 mb-6">{"Hôm nay ăn gì?"}</h3>
         <div ref={promosRef} className="flex overflow-x-auto gap-4 md:gap-6 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth">
-          {(promotions.length > 0 ? promotions : [
+          {(todayImages.length > 0 ? todayImages.map((image_url) => ({ image_url })) : promotions.length > 0 ? promotions : [
             { title: 'Bò Wagyu Nướng Đá', title_en: 'Stone-Grilled Wagyu', image_url: 'https://images.unsplash.com/photo-1600891964092-4316c288032e?auto=format&fit=crop&q=80&w=800&h=500' },
             { title: 'Sashimi Thuyền Lớn', title_en: 'Premium Sashimi Boat', image_url: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&q=80&w=800&h=500' },
             { title: 'Cá Hồi Áp Chảo Măng Tây', title_en: 'Pan-Seared Salmon', image_url: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&q=80&w=800&h=500' },
@@ -244,7 +270,7 @@ const Home = () => {
             { title: 'Mì Ramen Đặc Biệt', title_en: 'Special Ramen', image_url: 'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&q=80&w=800&h=500' },
             { title: 'Dimsum Tổng Hợp', title_en: 'Assorted Dimsum', image_url: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&q=80&w=800&h=500' },
             { title: 'Tráng Miệng Ý', title_en: 'Italian Dessert', image_url: 'https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&q=80&w=800&h=500' },
-          ]).map((promo, idx) => (
+          ]).map((promo: any, idx: number) => (
             <div key={promo.id || idx} className="relative w-full sm:w-[320px] md:w-[400px] h-[200px] md:h-[250px] shrink-0 snap-start rounded-3xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all">
               <img 
                 src={promo.image_url || promo.image || 'https://images.unsplash.com/photo-1544025162-831e7fce95af?auto=format&fit=crop&q=80&w=800&h=500'} 
@@ -258,9 +284,11 @@ const Home = () => {
                 <span className="inline-block px-3 py-1 bg-[#00a662] text-white text-[10px] font-bold rounded-full w-max mb-2 uppercase tracking-wide">
                   {"Ưu đãi"}
                 </span>
-                <h4 className="text-white text-lg md:text-2xl font-bold leading-tight">
-                  {promo.title || promo.name}
-                </h4>
+                {(promo.title || promo.name) && (
+                  <h4 className="text-white text-lg md:text-2xl font-bold leading-tight">
+                    {promo.title || promo.name}
+                  </h4>
+                )}
                 {(promo.description || promo.description_en) && (
                   <p className="text-gray-300 text-xs md:text-sm mt-1 line-clamp-2">
                     {promo.description}
