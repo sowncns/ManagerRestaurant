@@ -19,3 +19,12 @@ build/
 # Logs & OS
 *.log
 .DS_Store
+
+# Python (tests/)
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE & office temp
+.idea/
+~$*

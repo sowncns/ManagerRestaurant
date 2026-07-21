@@ -211,6 +211,25 @@ export default function CheckoutPanel({
     }
   }
 
+  // KT. Thanh toan (TRANSFER/APP): intent bi xoa khi khach tra xong -> hien modal in hoa don.
+  async function checkPaid() {
+    setBusy(true)
+    try {
+      const res = await checkoutApi.getIntent(table.id)
+      if (!res.hasIntent) {
+        alert('Đã thanh toán thành công!')
+        setPaidInvoiceId(intent?.invoiceId || 1) // co gia tri -> hien modal + nut In hoa don
+      } else {
+        setIntent(res.intent ?? intent)
+        alert('Khách chưa hoàn tất thanh toán. Vui lòng chờ khách xác nhận rồi kiểm tra lại.')
+      }
+    } catch (e) {
+      alert(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function pay(method: PaymentMethod) {
     if (
       mistakeUnvoided.length > 0 &&
@@ -426,57 +445,60 @@ export default function CheckoutPanel({
 
         <ErrorText>{err}</ErrorText>
 
-        {/* PayOS QR neu co intent TRANSFER */}
-        {intent && intent.method === 'TRANSFER' ? (
+        {/* Dang cho khach tra (TRANSFER qua PayOS / APP qua vi) */}
+        {intent && (intent.method === 'TRANSFER' || intent.method === 'APP') ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
-            <div className="mb-1 font-semibold text-amber-800">Chuyển khoản PayOS</div>
-            <p className="mb-2 text-slate-600">Mời khách quét mã hoặc mở link để thanh toán:</p>
-            {intent.checkoutUrl && (
-              <a
-                href={intent.checkoutUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block break-all text-blue-600 underline"
-              >
-                Link thanh toán (Click để mở)
-              </a>
+            {intent.method === 'TRANSFER' ? (
+              <>
+                <div className="mb-1 font-semibold text-amber-800">Chuyển khoản PayOS</div>
+                <p className="mb-2 text-slate-600">Mời khách quét mã hoặc mở link để thanh toán:</p>
+                {intent.checkoutUrl && (
+                  <a
+                    href={intent.checkoutUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block break-all text-blue-600 underline"
+                  >
+                    Link thanh toán (Click để mở)
+                  </a>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="primary"
+                    className="flex-1 justify-center bg-indigo-600 hover:bg-indigo-700"
+                    onClick={async () => {
+                      const qrString = intent.qrCode || intent.checkoutUrl
+                      if (qrString) {
+                        const url = await QRCode.toDataURL(qrString, { width: 300, margin: 2 })
+                        setQrDataUrl(url)
+                        setShowQrModal(true)
+                      }
+                    }}
+                  >
+                    Hiện mã QR
+                  </Button>
+                  <Button variant="secondary" className="flex-1 justify-center" disabled={busy} onClick={checkPaid}>
+                    <RefreshCw size={15} /> KT. Thanh toán
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-1 font-semibold text-amber-800">⏳ Chờ khách xác nhận trên App</div>
+                <p className="mb-3 text-slate-600">
+                  Đã gửi yêu cầu thanh toán tới ứng dụng của khách. Khách mở app xác nhận bằng PIN, sau đó bấm kiểm tra để in hóa đơn.
+                </p>
+                <Button variant="secondary" className="w-full justify-center" disabled={busy} onClick={checkPaid}>
+                  <RefreshCw size={15} /> KT. Thanh toán
+                </Button>
+              </>
             )}
-            <div className="mt-3 flex gap-2">
-              <Button
-                variant="primary"
-                className="flex-1 justify-center bg-indigo-600 hover:bg-indigo-700"
-                onClick={async () => {
-                  const qrString = intent.qrCode || intent.checkoutUrl
-                  if (qrString) {
-                    const url = await QRCode.toDataURL(qrString, { width: 300, margin: 2 })
-                    setQrDataUrl(url)
-                    setShowQrModal(true)
-                  }
-                }}
-              >
-                Hiện mã QR
-              </Button>
-              <Button
-                variant="secondary"
-                className="flex-1 justify-center"
-                onClick={async () => {
-                  await loadIntent()
-                  const res = await checkoutApi.getIntent(table.id)
-                  if (!res.hasIntent) {
-                    alert('Đã thanh toán chuyển khoản thành công!')
-                    setPaidInvoiceId(1) // Mark as paid to show print modal
-                  }
-                }}
-              >
-                <RefreshCw size={15} /> KT. Thanh toán
-              </Button>
-            </div>
             <Button
               variant="danger"
               className="mt-2 w-full justify-center"
               disabled={busy}
               onClick={async () => {
-                if (!window.confirm('Hủy giao dịch chuyển khoản này để chọn phương thức khác?')) return
+                if (!window.confirm('Hủy giao dịch này để chọn phương thức khác?')) return
                 setBusy(true)
                 try {
                   await checkoutApi.cancelIntent(table.id)
