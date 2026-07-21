@@ -28,6 +28,9 @@ const env = cleanEnv(process.env, {
 
   MAIL_USER: str({ default: "" }),
   MAIL_PASS: str({ default: "" }),
+  // Render chan SMTP -> gui mail qua Brevo HTTP API. MAIL_FROM = email nguoi gui da verify tren Brevo.
+  BREVO_API_KEY: str({ default: "" }),
+  MAIL_FROM: str({ default: "" }),
 
   // Supabase (Realtime + Auth hybrid). SERVICE_ROLE_KEY chi dung o backend, khong ra frontend.
   SUPABASE_URL: str({ default: "" }),
