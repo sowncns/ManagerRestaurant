@@ -15,6 +15,7 @@ export interface OrderItem {
   quantity: number
   unit_price: number
   total_price: number
+  discount_percent?: number
   note?: string | null
   kitchen_status?: KitchenStatus
   is_mistake?: boolean
@@ -114,6 +115,7 @@ export interface Preorder {
   reservation_date: string
   reservation_time: string
   customer_name: string
+  rescheduled_at: string | null
   items: PreorderItem[]
 }
 

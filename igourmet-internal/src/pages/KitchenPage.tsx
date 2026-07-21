@@ -375,6 +375,9 @@ export default function KitchenPage() {
                       <span className="flex items-center gap-1 text-sm text-indigo-700">
                         <Clock size={14} /> hẹn {String(p.reservation_time).slice(0, 5)}
                       </span>
+                      {p.rescheduled_at && (
+                        <Badge className="bg-red-100 text-red-700">⚠ ĐÃ ĐỔI GIỜ HẸN</Badge>
+                      )}
                     </div>
                     <div className="mt-0.5 text-xs text-slate-500">{p.customer_name}</div>
                     <ul className="mt-1.5 text-sm text-slate-700">

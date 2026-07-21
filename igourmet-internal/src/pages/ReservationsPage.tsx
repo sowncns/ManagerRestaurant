@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Wand2, LogIn, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Plus, Wand2, LogIn, RefreshCw, AlertTriangle, CalendarClock } from 'lucide-react'
 import {
   reservationsApi,
   type Reservation,
@@ -42,6 +42,7 @@ export default function ReservationsPage() {
   const [tables, setTables] = useState<DiningTable[]>([])
   const [alerts, setAlerts] = useState<ReservationAlert[]>([])
   const [open, setOpen] = useState(false)
+  const [reschedule, setReschedule] = useState<Reservation | null>(null)
   const [err, setErr] = useState('')
 
   async function load() {
@@ -179,6 +180,9 @@ export default function ReservationsPage() {
                     </option>
                   ))}
                 </Select>
+                <Button variant="secondary" onClick={() => setReschedule(r)}>
+                  <CalendarClock size={14} /> Đổi lịch
+                </Button>
                 <Button
                   variant="secondary"
                   onClick={() => act(() => reservationsApi.checkin(r.id, r.table_id ?? undefined))}
@@ -204,7 +208,70 @@ export default function ReservationsPage() {
           }}
         />
       )}
+
+      {reschedule && (
+        <RescheduleForm
+          reservation={reschedule}
+          onClose={() => setReschedule(null)}
+          onSaved={() => {
+            setReschedule(null)
+            void load()
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function RescheduleForm({
+  reservation,
+  onClose,
+  onSaved,
+}: {
+  reservation: Reservation
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [date, setDate] = useState(reservation.reservation_date)
+  const [time, setTime] = useState(reservation.reservation_time?.slice(0, 5) ?? '')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit() {
+    setSaving(true)
+    setErr('')
+    try {
+      await reservationsApi.update(reservation.id, {
+        reservation_date: date,
+        reservation_time: time,
+      })
+      onSaved()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open title={`Đổi lịch hẹn · ${reservation.customer_name}`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <Input label="Ngày (YYYY-MM-DD)" value={date} onChange={(e) => setDate(e.target.value)} placeholder="2026-07-08" />
+        <Input label="Giờ (HH:mm)" value={time} onChange={(e) => setTime(e.target.value)} placeholder="19:00" />
+        <p className="text-xs text-slate-500">
+          Nếu bàn này đã đặt món trước, bếp sẽ được báo là lịch hẹn đã thay đổi.
+        </p>
+        <ErrorText>{err}</ErrorText>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? 'Đang lưu...' : 'Lưu lịch mới'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

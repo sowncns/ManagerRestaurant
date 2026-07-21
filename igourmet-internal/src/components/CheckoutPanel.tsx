@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { QrCode, RefreshCw, X } from 'lucide-react'
+import { QrCode, RefreshCw, X, ClipboardList } from 'lucide-react'
 import type { DiningTable } from '../api/tables'
-import { ordersApi, type Order } from '../api/orders'
+import { ordersApi, type Order, type OrderItem } from '../api/orders'
 import { checkoutApi, type ScanResult, type CheckoutIntent, type PaymentMethod } from '../api/checkout'
+import { printKiemMon } from '../lib/kiemMon'
 import { errMsg } from '../lib/errMsg'
 import QRCode from 'qrcode'
 import { Button, Modal, Input, ErrorText, Badge } from './ui'
@@ -116,10 +117,10 @@ export default function CheckoutPanel({
   const items = allItems.filter((it) => it.kitchen_status !== 'CANCELLED')
   const billable = items.filter((it) => it.billing_status !== 'VOIDED')
   const mistakeUnvoided = items.filter((it) => it.is_mistake && it.billing_status !== 'VOIDED')
-  const total = billable.reduce(
-    (s, it) => s + (Number(it.total_price) || Number(it.unit_price) * it.quantity || 0),
-    0,
-  )
+  // Tien 1 dong: goc = total_price (hoac don gia x SL), tru % giam rieng cua mon.
+  const lineBase = (it: OrderItem) => Number(it.total_price) || Number(it.unit_price) * it.quantity || 0
+  const lineNet = (it: OrderItem) => lineBase(it) * (1 - (Number(it.discount_percent) || 0) / 100)
+  const total = billable.reduce((s, it) => s + lineNet(it), 0)
   const finalTotal = Math.max(0, total - (scan?.discountAmount || 0))
 
   async function voidItem(orderItemId: number, name: string) {
@@ -127,7 +128,50 @@ export default function CheckoutPanel({
     setBusy(true)
     setErr('')
     try {
-      await checkoutApi.voidItem(orderItemId, { reason_code: 'OTHER', note: 'Món nhầm lẫn — void tại quầy' })
+      await checkoutApi.voidItem(orderItemId, { reason_code: 'OTHER', note: 'Void tại quầy' })
+      await loadOrder()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function discountItem(it: OrderItem) {
+    const s = window.prompt(`Giảm bao nhiêu % cho "${it.item_name}"? (0-100)`, String(it.discount_percent || 0))
+    if (s == null) return
+    const pct = Number(s)
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      alert('Nhập % từ 0 đến 100')
+      return
+    }
+    setBusy(true)
+    setErr('')
+    try {
+      await checkoutApi.discountItem(it.order_item_id, { discount_percent: pct })
+      await loadOrder()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function reduceQty(it: OrderItem) {
+    const s = window.prompt(
+      `Số lượng mới cho "${it.item_name}" (hiện ${it.quantity}; nhập nhỏ hơn để giảm, muốn bỏ hết thì Void):`,
+      String(it.quantity),
+    )
+    if (s == null) return
+    const q = Number(s)
+    if (!Number.isInteger(q) || q < 1 || q >= it.quantity) {
+      alert(`Nhập số nguyên từ 1 đến ${it.quantity - 1}`)
+      return
+    }
+    setBusy(true)
+    setErr('')
+    try {
+      await checkoutApi.reduceQuantity(it.order_item_id, { quantity: q })
       await loadOrder()
     } catch (e) {
       setErr(errMsg(e))
@@ -150,6 +194,8 @@ export default function CheckoutPanel({
       setBusy(false)
     }
   }
+
+
 
   async function handlePrintInvoice() {
     if (!table) return
@@ -200,6 +246,21 @@ export default function CheckoutPanel({
     }
   }
 
+  // In phieu kiem mon (pre-bill): mon + gia goc + VAT, khong thu tien.
+  async function handleKiemMon() {
+    setErr('')
+    try {
+      const data = await checkoutApi.getKiemMon(table.id)
+      if (!data.items.length) {
+        setErr('Bàn chưa có món nào để kiểm')
+        return
+      }
+      printKiemMon(table.table_name || `Bàn ${table.table_number}`, data)
+    } catch (e) {
+      setErr(errMsg(e))
+    }
+  }
+
   if (paidInvoiceId) {
     return (
       <Modal open title="Thanh toán thành công" onClose={onPaid}>
@@ -233,12 +294,20 @@ export default function CheckoutPanel({
             {table.table_name || `Bàn ${table.table_number}`}
           </p>
         </div>
-        <button
-          onClick={onClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
-        >
-          <X size={18} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={handleKiemMon}
+            className="flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 active:scale-95"
+          >
+            <ClipboardList size={15} /> Kiểm món
+          </button>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
@@ -251,21 +320,47 @@ export default function CheckoutPanel({
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
               {items.map((it) => {
                 const voided = it.billing_status === 'VOIDED'
-                const amount = Number(it.total_price) || Number(it.unit_price) * it.quantity
+                const pct = Number(it.discount_percent) || 0
+                const base = lineBase(it)
+                const net = lineNet(it)
                 return (
-                  <li key={it.order_item_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                    <span className={voided ? 'text-slate-400 line-through' : ''}>
-                      {it.item_name} × {it.quantity}
-                      {it.is_mistake && !voided && (
-                        <Badge className="ml-2 bg-red-100 text-red-700">Nhầm lẫn</Badge>
-                      )}
-                      {voided && <Badge className="ml-2 bg-slate-200 text-slate-500">Đã void</Badge>}
-                    </span>
-                    <span className="flex items-center gap-2">
+                  <li key={it.order_item_id} className="flex flex-col gap-1.5 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
                       <span className={voided ? 'text-slate-400 line-through' : ''}>
-                        {amount.toLocaleString('vi-VN')}đ
+                        {it.item_name} × {it.quantity}
+                        {it.is_mistake && !voided && (
+                          <Badge className="ml-2 bg-red-100 text-red-700">Nhầm lẫn</Badge>
+                        )}
+                        {pct > 0 && !voided && (
+                          <Badge className="ml-2 bg-amber-100 text-amber-700">−{pct}%</Badge>
+                        )}
+                        {voided && <Badge className="ml-2 bg-slate-200 text-slate-500">Đã void</Badge>}
                       </span>
-                      {it.is_mistake && !voided && (
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        {pct > 0 && !voided && (
+                          <span className="text-slate-400 line-through">{base.toLocaleString('vi-VN')}đ</span>
+                        )}
+                        <span className={voided ? 'text-slate-400 line-through' : ''}>
+                          {net.toLocaleString('vi-VN')}đ
+                        </span>
+                      </span>
+                    </div>
+                    {!voided && (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          className="rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                          disabled={busy}
+                          onClick={() => discountItem(it)}
+                        >
+                          Giảm %
+                        </button>
+                        <button
+                          className="rounded bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                          disabled={busy || it.quantity <= 1}
+                          onClick={() => reduceQty(it)}
+                        >
+                          Giảm SL
+                        </button>
                         <Button
                           variant="danger"
                           className="px-2 py-1 text-xs"
@@ -274,8 +369,8 @@ export default function CheckoutPanel({
                         >
                           Void
                         </Button>
-                      )}
-                    </span>
+                      </div>
+                    )}
                   </li>
                 )
               })}
@@ -317,6 +412,8 @@ export default function CheckoutPanel({
               )}
             </div>
           )}
+
+
         </div>
 
         {/* Tong tien */}

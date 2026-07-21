@@ -130,7 +130,12 @@ export default function VouchersPage() {
         />
       )}
       {assigning && (
-        <AssignForm voucher={assigning} onClose={() => setAssigning(null)} onDone={() => setAssigning(null)} />
+        <AssignForm 
+          voucher={assigning} 
+          isSuperAdmin={isSuperAdmin}
+          onClose={() => setAssigning(null)} 
+          onDone={() => setAssigning(null)} 
+        />
       )}
     </div>
   )
@@ -357,14 +362,16 @@ function VoucherForm({
 
 function AssignForm({
   voucher,
+  isSuperAdmin,
   onClose,
   onDone,
 }: {
   voucher: Voucher
+  isSuperAdmin: boolean
   onClose: () => void
   onDone: () => void
 }) {
-  const [mode, setMode] = useState<'rank' | 'ids' | 'birthday'>('rank')
+  const [mode, setMode] = useState<'rank' | 'ids' | 'birthday' | 'all'>('rank')
   const [rank, setRank] = useState('gold')
   const [birthMonth, setBirthMonth] = useState('1')
   const [ids, setIds] = useState('')
@@ -383,6 +390,8 @@ function AssignForm({
         body = { rank, reason: reason.trim() || undefined }
       } else if (mode === 'birthday') {
         body = { birthMonth: Number(birthMonth), reason: reason.trim() || undefined }
+      } else if (mode === 'all') {
+        body = { all_customers: true, reason: reason.trim() || undefined }
       } else {
         const customerIds = ids
           .split(/[\s,]+/)
@@ -410,11 +419,12 @@ function AssignForm({
         <Select
           label="Cách cấp"
           value={mode}
-          onChange={(e) => setMode(e.target.value as 'rank' | 'ids' | 'birthday')}
+          onChange={(e) => setMode(e.target.value as 'rank' | 'ids' | 'birthday' | 'all')}
         >
           <option value="rank">Theo hạng thành viên</option>
           <option value="birthday">Theo tháng sinh nhật</option>
           <option value="ids">Theo danh sách ID khách</option>
+          {isSuperAdmin && <option value="all">Toàn bộ khách hàng</option>}
         </Select>
         {mode === 'rank' && (
           <Select label="Hạng" value={rank} onChange={(e) => setRank(e.target.value)}>

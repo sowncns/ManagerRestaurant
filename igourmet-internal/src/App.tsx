@@ -17,6 +17,7 @@ import InventoryPage from './pages/InventoryPage'
 import AuditLogsPage from './pages/AuditLogsPage'
 import CompaniesPage from './pages/CompaniesPage'
 import CashbackRatesPage from './pages/CashbackRatesPage'
+import HomeBannersPage from './pages/HomeBannersPage'
 import VouchersPage from './pages/VouchersPage'
 import { ROLE_GROUPS } from './config/nav'
 import { useAuth } from './context/AuthContext'
@@ -87,6 +88,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={['SUPER_ADMIN']} />}>
             <Route path="cashback-rates" element={<CashbackRatesPage />} />
+            <Route path="home-banners" element={<HomeBannersPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

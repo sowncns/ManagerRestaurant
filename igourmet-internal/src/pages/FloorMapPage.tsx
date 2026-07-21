@@ -778,6 +778,9 @@ function TableActionModal({
   const [mode, setMode] = useState<'menu' | 'hold' | 'open'>('menu')
   const [switchResId, setSwitchResId] = useState<number | null>(null)
   const [newTableId, setNewTableId] = useState<string>('')
+  const [rescheduleResId, setRescheduleResId] = useState<number | null>(null)
+  const [newDate, setNewDate] = useState('')
+  const [newTime, setNewTime] = useState('')
   const [busy, setBusy] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -873,6 +876,7 @@ function TableActionModal({
                             onClick={() => {
                               setSwitchResId(switchResId === r.id ? null : r.id)
                               setNewTableId('')
+                              setRescheduleResId(null)
                             }}
                             className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
                               switchResId === r.id
@@ -881,6 +885,26 @@ function TableActionModal({
                             }`}
                           >
                             Đổi bàn
+                          </button>
+                          <button
+                            title="Đổi lịch"
+                            onClick={() => {
+                              if (rescheduleResId === r.id) {
+                                setRescheduleResId(null)
+                              } else {
+                                setRescheduleResId(r.id)
+                                setNewDate(r.reservation_date || todayStr())
+                                setNewTime(r.reservation_time?.slice(0, 5) || '')
+                              }
+                              setSwitchResId(null)
+                            }}
+                            className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
+                              rescheduleResId === r.id
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'text-orange-600 bg-orange-50 hover:bg-orange-100'
+                            }`}
+                          >
+                            Đổi lịch
                           </button>
                           <button
                             title="Nhận khách (Check-in)"
@@ -932,6 +956,44 @@ function TableActionModal({
                           className="shrink-0 py-1.5 px-3 text-xs"
                         >
                           Lưu thay đổi
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Hien thi form doi lich neu dang bat mode Doi lich */}
+                    {rescheduleResId === r.id && (
+                      <div className="flex items-center gap-2 mt-1 border-t border-slate-100 pt-2">
+                        <input 
+                          type="date"
+                          value={newDate} 
+                          onChange={(e) => setNewDate(e.target.value)}
+                          className="flex-1 rounded-md border-slate-200 py-1 px-2 text-xs bg-white shadow-sm focus:border-indigo-400 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                        />
+                        <input 
+                          type="time"
+                          value={newTime} 
+                          onChange={(e) => setNewTime(e.target.value)} 
+                          className="w-24 rounded-md border-slate-200 py-1 px-2 text-xs bg-white shadow-sm focus:border-indigo-400 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                        />
+                        <Button 
+                          disabled={!newDate || !newTime || busy} 
+                          onClick={async () => {
+                            setBusy(true)
+                            try {
+                              await reservationsApi.update(r.id, {
+                                reservation_date: newDate,
+                                reservation_time: newTime,
+                              })
+                              onSaved()
+                            } catch (e) {
+                              alert(errMsg(e))
+                            } finally {
+                              setBusy(false)
+                            }
+                          }}
+                          className="shrink-0 py-1.5 px-3 text-xs"
+                        >
+                          Lưu
                         </Button>
                       </div>
                     )}

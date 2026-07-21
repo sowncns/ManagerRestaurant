@@ -56,6 +56,7 @@ export interface AssignInput {
   customerIds?: number[]
   rank?: string
   birthMonth?: number
+  all_customers?: boolean
   reason?: string
 }
 

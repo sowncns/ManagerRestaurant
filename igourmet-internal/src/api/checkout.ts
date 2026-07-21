@@ -55,11 +55,17 @@ export const checkoutApi = {
     const { data } = await api.post('/internal/checkout/scan', { tableId, token })
     return data.data
   },
-  async validateVoucher(code: string, orderTotal: number, tableId: number): Promise<TableVoucher> {
+  async validateVoucher(
+    code: string,
+    orderTotal: number,
+    tableId: number,
+    customerRef?: string,
+  ): Promise<TableVoucher> {
     const { data } = await api.post('/internal/checkout/validate-voucher', {
       code,
       orderTotal,
       tableId,
+      customerRef,
     })
     return data.data
   },
@@ -92,6 +98,22 @@ export const checkoutApi = {
     body: { reason_code: string; note?: string },
   ): Promise<{ order_item_id: number; billing_status: 'VOIDED'; voided_amount: number }> {
     const { data } = await api.post(`/internal/checkout/items/${orderItemId}/void`, body)
+    return data
+  },
+  // Thu ngan giam gia rieng 1 mon theo %.
+  async discountItem(
+    orderItemId: number,
+    body: { discount_percent: number; note?: string },
+  ): Promise<{ order_item_id: number; discount_percent: number; discounted_amount: number }> {
+    const { data } = await api.post(`/internal/checkout/items/${orderItemId}/discount`, body)
+    return data
+  },
+  // Thu ngan giam so luong 1 mon (SL moi < SL hien tai).
+  async reduceQuantity(
+    orderItemId: number,
+    body: { quantity: number; note?: string },
+  ): Promise<{ order_item_id: number; quantity: number; removed_amount: number }> {
+    const { data } = await api.post(`/internal/checkout/items/${orderItemId}/reduce-quantity`, body)
     return data
   },
 }
