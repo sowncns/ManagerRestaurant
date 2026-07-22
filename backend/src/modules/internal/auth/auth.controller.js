@@ -4,10 +4,11 @@ const service = require("./auth.service");
 const env = require("../../../config/env");
 const audit = require("../../../shared/services/audit.service");
 
+const isProd = env.NODE_ENV === "production";
 const cookieOpts = {
   httpOnly: true,
-  secure: true, // Phải luôn true để dùng SameSite="none"
-  sameSite: "none", // Bắt buộc cho cross-origin (Netlify -> Backend)
+  secure: isProd, // Phải luôn true để dùng SameSite="none", nhưng khi test local trên đt qua HTTP thì cần false
+  sameSite: isProd ? "none" : "lax", // Bắt buộc none cho cross-origin (Netlify -> Backend) trên prod
 };
 const ACCESS_MAXAGE = 24 * 60 * 60 * 1000; // 1 ngay
 const REFRESH_MAXAGE = 7 * 24 * 60 * 60 * 1000; // 7 ngay
