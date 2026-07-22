@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Bell, Gift, FileText, Smartphone, LogOut, ChevronRight, Calendar, MapPin as QrCode, Lock, Eye, EyeOff, Receipt, AlertCircle } from 'lucide-react';
+import { ArrowLeft, User, Gift, FileText, LogOut, ChevronRight, Calendar, MapPin as QrCode, Lock, Eye, EyeOff, Receipt, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import PinVerification from './PinVerification';
