@@ -12,6 +12,14 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 let refreshing: Promise<any> | null = null;
 
 api.interceptors.response.use(
@@ -26,16 +34,27 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry && !isAuthCall) {
       original._retry = true;
       try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        
         // Gộp nhiều request 401 cùng lúc vào 1 lần refresh
-        refreshing = refreshing || api.post('/customer/auth/refresh-token');
-        await refreshing;
+        refreshing = refreshing || axios.post(`${API_BASE_URL}/api/customer/auth/refresh-token`, { refreshToken }, { withCredentials: true });
+        const res = await refreshing;
         refreshing = null;
         
-        // Cập nhật lại config (không cần thiết thêm auth header nữa vì dùng cookie)
+        const data = res.data;
+        if (data && data.accessToken) {
+          localStorage.setItem('accessToken', data.accessToken);
+          if (data.refreshToken) {
+            localStorage.setItem('refreshToken', data.refreshToken);
+          }
+          original.headers.Authorization = `Bearer ${data.accessToken}`;
+        }
+        
         return api(original); // Thử lại request gốc
       } catch (e) {
         refreshing = null;
-        // Refresh thất bại -> để component gọi api tự xử lý (ví dụ: AuthContext set user = null)
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         return Promise.reject(e);
       }
     }

@@ -264,11 +264,7 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
             <div className={menuSectionClass}>
               <h4 className={sectionTitleClass}>{"Cá nhân hóa"}</h4>
               <div>
-                <div className={menuItemClass}>
-                  <Bell className="w-[22px] h-[22px] text-gray-700" strokeWidth={1.5} />
-                  <span className="flex-1 text-[15px] text-gray-800 font-medium">{"Tin nhắn"}</span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                </div>
+
                 <div 
                   onClick={() => { onClose(); openVoucherModal(); }}
                   className={menuItemClass}
@@ -280,26 +276,11 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
               </div>
             </div>
 
-            {/* Chính sách & Cài đặt */}
-            <div className={menuSectionClass}>
-              <h4 className={sectionTitleClass}>{"Chính sách"}</h4>
-              <div>
-                <div className={menuItemClass}>
-                  <FileText className="w-[22px] h-[22px] text-gray-700" strokeWidth={1.5} />
-                  <span className="flex-1 text-[15px] text-gray-800 font-medium">{"Điều khoản dịch vụ"}</span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                </div>
-              </div>
-            </div>
 
             <div className={menuSectionClass}>
               <h4 className={sectionTitleClass}>{"Cài đặt"}</h4>
               <div>
-                <div className={menuItemClass}>
-                  <Smartphone className="w-[22px] h-[22px] text-gray-700" strokeWidth={1.5} />
-                  <span className="flex-1 text-[15px] text-gray-800 font-medium">{"Thông tin ứng dụng"}</span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                </div>
+
                 <div 
                   className={menuItemClass}
                   onClick={() => setView('pin')}
