@@ -4,6 +4,8 @@ import type { Staff } from '../types/auth'
 interface AuthResponse {
   message: string
   staff: Staff
+  accessToken?: string
+  refreshToken?: string
 }
 
 export const authApi = {
@@ -12,6 +14,10 @@ export const authApi = {
       username,
       password,
     })
+    if (data.accessToken) {
+      localStorage.setItem('internalAccessToken', data.accessToken)
+      localStorage.setItem('internalRefreshToken', data.refreshToken || '')
+    }
     return data.staff
   },
 
@@ -21,6 +27,12 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
-    await api.post('/internal/auth/logout')
+    try {
+      await api.post('/internal/auth/logout')
+    } catch (e) {
+      console.error(e)
+    }
+    localStorage.removeItem('internalAccessToken')
+    localStorage.removeItem('internalRefreshToken')
   },
 }

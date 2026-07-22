@@ -25,18 +25,30 @@ exports.login = asyncHandler(async (req, res) => {
     { user: result.staff, ip: req.ip },
     { action: "LOGIN", entityType: "STAFF", entityId: result.staff?.id, description: "Đăng nhập nội bộ" }
   );
-  res.json({ message: "Đăng nhập thành công", staff: result.staff, supabaseSession: result.supabaseSession });
+  res.json({ 
+    message: "Đăng nhập thành công", 
+    staff: result.staff, 
+    supabaseSession: result.supabaseSession,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken
+  });
 });
 
 exports.refresh = asyncHandler(async (req, res) => {
-  const token = req.cookies?.internalRefreshToken;
+  const bearer = (req.headers.authorization || "").split(" ")[1];
+  const token = req.cookies?.internalRefreshToken || req.body?.refreshToken || bearer;
   const result = await service.refresh(token);
   setAuthCookies(res, result);
-  res.json({ message: "Làm mới token thành công", staff: result.staff });
+  res.json({ 
+    message: "Làm mới token thành công", 
+    staff: result.staff,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken
+  });
 });
 
 exports.logout = asyncHandler(async (req, res) => {
-  res.clearCookie("internalAccessToken");
-  res.clearCookie("internalRefreshToken");
+  res.clearCookie("internalAccessToken", cookieOpts);
+  res.clearCookie("internalRefreshToken", cookieOpts);
   res.json({ message: "Đăng xuất thành công" });
 });

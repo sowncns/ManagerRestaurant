@@ -71,8 +71,8 @@ exports.refresh = asyncHandler(async (req, res) => {
 });
 
 exports.logout = asyncHandler(async (req, res) => {
-  res.clearCookie("customerAccessToken");
-  res.clearCookie("customerRefreshToken");
+  res.clearCookie("customerAccessToken", cookieOpts);
+  res.clearCookie("customerRefreshToken", cookieOpts);
   res.json({ message: "Đăng xuất thành công" });
 });
 

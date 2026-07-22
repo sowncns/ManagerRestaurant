@@ -25,6 +25,7 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
   const [saving, setSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(user);
   const [resending, setResending] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
 
 
@@ -146,7 +147,10 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
   }
 
   const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
     await logout();
+    setLoggingOut(false);
   };
 
   const menuSectionClass = "space-y-1 mb-8";
@@ -293,10 +297,16 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
                 </div>
                 <div 
                   onClick={handleLogout}
-                  className="flex items-center gap-4 py-3 px-2 mt-2 cursor-pointer group"
+                  className={`flex items-center gap-4 py-3 px-2 mt-2 group ${loggingOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <LogOut className="w-[22px] h-[22px] text-red-500" strokeWidth={1.5} />
-                  <span className="flex-1 text-[15px] text-red-500 font-medium">{"Đăng xuất"}</span>
+                  {loggingOut ? (
+                    <div className="animate-spin rounded-full h-[22px] w-[22px] border-b-2 border-red-500"></div>
+                  ) : (
+                    <LogOut className="w-[22px] h-[22px] text-red-500" strokeWidth={1.5} />
+                  )}
+                  <span className="flex-1 text-[15px] text-red-500 font-medium">
+                    {loggingOut ? "Đang đăng xuất..." : "Đăng xuất"}
+                  </span>
                 </div>
               </div>
             </div>
