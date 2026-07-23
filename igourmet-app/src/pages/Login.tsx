@@ -35,10 +35,7 @@ const Login = () => {
       const response: any = await api.post('/customer/auth/login', { email, password });
       
       const user = response.customer || response;
-      if (response.accessToken) {
-        localStorage.setItem('accessToken', response.accessToken);
-        localStorage.setItem('refreshToken', response.refreshToken);
-      }
+
       login(user);
       
       // Điều hướng về trang chủ
