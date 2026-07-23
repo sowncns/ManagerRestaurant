@@ -46,6 +46,7 @@ const updateItemSchema = z.object({
   .refine((d) => Object.keys(d).length > 0, { message: "Không có dữ liệu cập nhật" });
 
 const availabilitySchema = z.object({
+  company_id: z.coerce.number().int().positive().optional(),
   is_available: z.coerce.boolean(),
 });
 
