@@ -80,7 +80,7 @@ async function createOrder(data) {
       return addOrderItems(active.id, { ...data, items: data.order_items });
     }
 
-    const menuRows = order_items?.length ? await repo.findMenuItems(client, order_items.map((i) => i.menu_item_id)) : [];
+    const menuRows = order_items?.length ? await repo.findMenuItems(client, order_items.map((i) => i.menu_item_id), branch_id) : [];
     const menuById = new Map(menuRows.map((r) => [r.id, r]));
     const { items, subtotal, totalVat } = order_items?.length ? buildItems(order_items, menuById, { requireAvailable: true }) : { items: [], subtotal: 0, totalVat: 0 };
 
@@ -138,7 +138,7 @@ async function addOrderItems(orderId, data) {
       throw new BadRequest("Order is closed.");
     }
 
-    const menuRows = await repo.findMenuItems(client, reqItems.map((i) => i.menu_item_id));
+    const menuRows = await repo.findMenuItems(client, reqItems.map((i) => i.menu_item_id), branch_id);
     const menuById = new Map(menuRows.map((r) => [r.id, r]));
     const { items, subtotal, totalVat } = buildItems(reqItems, menuById, { requireAvailable: false });
 
@@ -325,7 +325,7 @@ async function createScheduledPreorder({ company_id, branch_id, customer_id, res
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const menuRows = await repo.findMenuItems(client, items.map((i) => i.menu_item_id));
+    const menuRows = await repo.findMenuItems(client, items.map((i) => i.menu_item_id), branch_id);
     const menuById = new Map(menuRows.map((r) => [r.id, r]));
     const built = buildItems(items, menuById, { requireAvailable: true });
 

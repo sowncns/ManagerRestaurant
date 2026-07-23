@@ -12,12 +12,13 @@ exports.list = asyncHandler(async (req, res) => {
     category_id: category_id ? Number(category_id) : undefined,
     is_available: is_available !== undefined ? is_available === "true" : undefined,
     search,
+    branchId: req.user.branch_id ?? null,
   });
   res.json({ message: "Lấy danh sách món thành công", items });
 });
 
 exports.get = asyncHandler(async (req, res) => {
-  const item = await service.getItem(parseId(req.params.id), resolveCompanyId(req));
+  const item = await service.getItem(parseId(req.params.id), resolveCompanyId(req), req.user.branch_id ?? null);
   res.json({ message: "Lấy món ăn thành công", item });
 });
 
@@ -48,10 +49,11 @@ exports.setAvailability = asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
   const companyId = resolveCompanyId(req);
   if (!companyId) throw new BadRequest("Thiếu thông tin công ty");
-  const item = await service.setAvailability(id, companyId, req.body.is_available);
+  const item = await service.setAvailability(id, companyId, req.body.is_available, req.user.branch_id ?? null);
+  const scope = req.user.branch_id ? " tại chi nhánh" : "";
   audit.record(audit.ctx(req), {
     action: "UPDATE", entityType: "MENU_ITEM", entityId: id,
-    description: `${item.is_available ? "Bật" : "Tắt"} phục vụ món "${item.name}"`,
+    description: `${req.body.is_available ? "Bật" : "Tắt"} phục vụ món "${item.name}"${scope}`,
   });
   res.json({ message: "Cập nhật trạng thái phục vụ thành công", item });
 });

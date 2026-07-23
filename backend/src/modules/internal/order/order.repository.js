@@ -32,11 +32,13 @@ exports.findActiveOrderId = (db, tableId) =>
     )
     .then((r) => r.rows[0]);
 
-exports.findMenuItems = (db, menuIds) =>
+exports.findMenuItems = (db, menuIds, branchId = null) =>
   db
     .query(
-      "SELECT menu_item_id AS id, name, price, vat, status, is_available FROM menu_items WHERE menu_item_id = ANY($1::int[])",
-      [menuIds]
+      `SELECT menu_item_id AS id, name, price, vat, status,
+              (is_available AND NOT ($2::int IS NOT NULL AND $2 = ANY(unavailable_branch_ids))) AS is_available
+       FROM menu_items WHERE menu_item_id = ANY($1::int[])`,
+      [menuIds, branchId]
     )
     .then((r) => r.rows);
 

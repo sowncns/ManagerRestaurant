@@ -55,8 +55,8 @@ async function assertKitchenTypeExists(kitchenTypeId) {
 
 exports.listItems = (companyId, filters) => repo.findItems(companyId, filters);
 
-exports.getItem = async (id, companyId) => {
-  const item = await repo.findItemById(id, companyId);
+exports.getItem = async (id, companyId, branchId = null) => {
+  const item = await repo.findItemById(id, companyId, branchId);
   if (!item) throw new NotFound("Không tìm thấy món ăn");
   return item;
 };
@@ -86,9 +86,13 @@ exports.updateItem = async (id, companyId, data) => {
   }
 };
 
-exports.setAvailability = async (id, companyId, isAvailable) => {
+// branchId != null -> chi cap nhat trang thai het/con o chi nhanh do (mang unavailable_branch_ids).
+// branchId == null -> cap nhat cot is_available cua ca cong ty (COMPANY_ADMIN/SUPER_ADMIN).
+exports.setAvailability = async (id, companyId, isAvailable, branchId = null) => {
   await exports.getItem(id, companyId);
-  const item = await repo.updateItem(id, companyId, { is_available: isAvailable });
+  const item = branchId
+    ? await repo.setBranchAvailability(id, companyId, branchId, isAvailable)
+    : await repo.updateItem(id, companyId, { is_available: isAvailable });
   if (!item) throw new NotFound("Không tìm thấy món ăn");
   return item;
 };
