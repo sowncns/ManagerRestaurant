@@ -14,10 +14,6 @@ export const authApi = {
       username,
       password,
     })
-    if (data.accessToken) {
-      localStorage.setItem('internalAccessToken', data.accessToken)
-      localStorage.setItem('internalRefreshToken', data.refreshToken || '')
-    }
     return data.staff
   },
 
@@ -32,7 +28,5 @@ export const authApi = {
     } catch (e) {
       console.error(e)
     }
-    localStorage.removeItem('internalAccessToken')
-    localStorage.removeItem('internalRefreshToken')
   },
 }

@@ -8,10 +8,6 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('internalAccessToken')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
   return config
 })
 
@@ -39,22 +35,12 @@ api.interceptors.response.use(
     ) {
       originalRequest._retry = true
       try {
-        const refreshToken = localStorage.getItem('internalRefreshToken')
-        refreshPromise ??= api.post('/internal/auth/refresh-token', { refreshToken })
-        const res: any = await refreshPromise
+        refreshPromise ??= api.post('/internal/auth/refresh-token')
+        await refreshPromise
         refreshPromise = null
-        if (res.data?.accessToken) {
-          localStorage.setItem('internalAccessToken', res.data.accessToken)
-          if (res.data.refreshToken) {
-            localStorage.setItem('internalRefreshToken', res.data.refreshToken)
-          }
-          originalRequest.headers.Authorization = `Bearer ${res.data.accessToken}`
-        }
         return api(originalRequest)
       } catch (refreshError) {
         refreshPromise = null
-        localStorage.removeItem('internalAccessToken')
-        localStorage.removeItem('internalRefreshToken')
         onUnauthorized?.()
         return Promise.reject(refreshError)
       }
