@@ -11,6 +11,7 @@ import { companiesApi, type Company } from '../api/companies'
 export default function MenuPage() {
   const { staff } = useAuth()
   const isSuperAdmin = staff?.role === 'SUPER_ADMIN'
+  const isBranchManager = staff?.role === 'BRANCH_MANAGER'
 
   const [tab, setTab] = useState<'items' | 'categories'>('items')
   const [filterCompanyId, setFilterCompanyId] = useState<number | ''>('')
@@ -34,12 +35,15 @@ export default function MenuPage() {
           <Button variant={tab === 'items' ? 'primary' : 'secondary'} onClick={() => setTab('items')}>
             Món ăn
           </Button>
-          <Button
-            variant={tab === 'categories' ? 'primary' : 'secondary'}
-            onClick={() => setTab('categories')}
-          >
-            Danh mục
-          </Button>
+          {/* BRANCH_MANAGER chỉ được toggle hết/còn, không cần quản lý danh mục */}
+          {!isBranchManager && (
+            <Button
+              variant={tab === 'categories' ? 'primary' : 'secondary'}
+              onClick={() => setTab('categories')}
+            >
+              Danh mục
+            </Button>
+          )}
         </div>
         {isSuperAdmin && (
           <Select
@@ -224,6 +228,7 @@ function ItemsTab({ filterCompanyId }: { filterCompanyId: number | '' }) {
   const [activeCategoryId, setActiveCategoryId] = useState<number | ''>('')
   const { staff } = useAuth()
   const isManager = staff?.role === 'SUPER_ADMIN' || staff?.role === 'COMPANY_ADMIN'
+  const canManage = staff?.role === 'SUPER_ADMIN' || staff?.role === 'COMPANY_ADMIN'
 
   async function load() {
     try {
@@ -309,15 +314,18 @@ function ItemsTab({ filterCompanyId }: { filterCompanyId: number | '' }) {
             </button>
           ))}
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null)
-            setOpen(true)
-          }}
-          className="ml-4 whitespace-nowrap"
-        >
-          <Plus size={16} /> Thêm món
-        </Button>
+        {/* BRANCH_MANAGER không được thêm món mới */}
+        {canManage && (
+          <Button
+            onClick={() => {
+              setEditing(null)
+              setOpen(true)
+            }}
+            className="ml-4 whitespace-nowrap"
+          >
+            <Plus size={16} /> Thêm món
+          </Button>
+        )}
       </div>
       <Table headers={['Tên món', 'Danh mục', 'Giá', 'Phục vụ', '']}>
         {filteredItems.map((it) => (
@@ -337,32 +345,37 @@ function ItemsTab({ filterCompanyId }: { filterCompanyId: number | '' }) {
               </button>
             </td>
             <td className="px-4 py-3 text-right">
-              <button
-                className="mr-2 text-slate-500 hover:text-slate-800"
-                onClick={() => {
-                  setEditing(it)
-                  setOpen(true)
-                }}
-                title="Sửa món"
-              >
-                <Pencil size={16} />
-              </button>
-              {isManager && (
-                <button
-                  className="mr-2 text-slate-500 hover:text-indigo-600"
-                  onClick={() => setEditingRecipe(it)}
-                  title="Cài đặt công thức"
-                >
-                  <ChefHat size={16} />
-                </button>
+              {/* BRANCH_MANAGER chỉ được bật/tắt hết-còn, không sửa/xóa */}
+              {canManage && (
+                <>
+                  <button
+                    className="mr-2 text-slate-500 hover:text-slate-800"
+                    onClick={() => {
+                      setEditing(it)
+                      setOpen(true)
+                    }}
+                    title="Sửa món"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  {isManager && (
+                    <button
+                      className="mr-2 text-slate-500 hover:text-indigo-600"
+                      onClick={() => setEditingRecipe(it)}
+                      title="Cài đặt công thức"
+                    >
+                      <ChefHat size={16} />
+                    </button>
+                  )}
+                  <button
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => remove(it.menu_item_id)}
+                    title="Ngưng phục vụ"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
               )}
-              <button
-                className="text-red-500 hover:text-red-700"
-                onClick={() => remove(it.menu_item_id)}
-                title="Ngưng phục vụ"
-              >
-                <Trash2 size={16} />
-              </button>
             </td>
           </tr>
         ))}
