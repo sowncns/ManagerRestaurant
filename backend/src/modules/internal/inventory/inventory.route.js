@@ -14,7 +14,9 @@ const {
 
 const router = express.Router();
 
-const managerOnly = authorize("SUPER_ADMIN", "COMPANY_ADMIN", "BRANCH_MANAGER");
+// BRANCH_MANAGER chi duoc nhap/xuat kho (dieu chinh so luong), khong duoc them/sua/xoa nguyen lieu.
+const companyManage = authorize("SUPER_ADMIN", "COMPANY_ADMIN");
+const branchOps = authorize("SUPER_ADMIN", "COMPANY_ADMIN", "BRANCH_MANAGER");
 const staffRead = authorize("SUPER_ADMIN", "COMPANY_ADMIN", "BRANCH_MANAGER", "KITCHEN", "CASHIER", "WAITER");
 
 // Kho scoped theo company_id. SUPER_ADMIN khong thuoc cong ty nao -> cho phep
@@ -33,17 +35,17 @@ router.use(requireAuth, resolveCompanyScope);
 router.get("/ingredients", staffRead, controller.listIngredients);
 router.get("/ingredients/low-stock", staffRead, controller.listLowStock);
 router.get("/ingredients/:id", staffRead, controller.getIngredient);
-router.post("/ingredients", managerOnly, validate(createIngredientSchema), controller.createIngredient);
-router.put("/ingredients/:id", managerOnly, validate(updateIngredientSchema), controller.updateIngredient);
-router.delete("/ingredients/:id", managerOnly, controller.deleteIngredient);
+router.post("/ingredients", companyManage, validate(createIngredientSchema), controller.createIngredient);
+router.put("/ingredients/:id", companyManage, validate(updateIngredientSchema), controller.updateIngredient);
+router.delete("/ingredients/:id", companyManage, controller.deleteIngredient);
 
 // ---- Cong thuc mon an ----
 router.get("/recipes/menu-item/:menuItemId", staffRead, controller.getRecipe);
-router.put("/recipes/menu-item/:menuItemId", managerOnly, validate(setRecipeSchema), controller.setRecipe);
-router.delete("/recipes/:id", managerOnly, controller.deleteRecipeLine);
+router.put("/recipes/menu-item/:menuItemId", companyManage, validate(setRecipeSchema), controller.setRecipe);
+router.delete("/recipes/:id", companyManage, controller.deleteRecipeLine);
 
 // ---- Phieu kho (nhap / xuat noi bo / tra NCC / kiem ke / dieu chinh / huy hao) ----
-router.post("/transactions", managerOnly, validate(stockTransactionSchema), controller.createStockTransaction);
+router.post("/transactions", branchOps, validate(stockTransactionSchema), controller.createStockTransaction);
 router.get("/transactions", staffRead, controller.getTransactions);
 
 // ---- Uoc tinh nguyen lieu cho 1 order ----

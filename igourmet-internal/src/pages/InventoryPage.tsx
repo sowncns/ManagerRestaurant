@@ -19,8 +19,9 @@ export default function InventoryPage() {
   const { staff } = useAuth()
   const isSuperAdmin = staff?.role === 'SUPER_ADMIN'
   const isCompanyAdmin = staff?.role === 'COMPANY_ADMIN'
-  // Bep chi XEM kho (theo doi nguyen lieu), khong sua/nhap-xuat.
-  const canEdit = staff?.role !== 'KITCHEN'
+  // Bep chi XEM kho. BRANCH_MANAGER chi nhap/xuat (canDoTxn), khong them/sua/toggle nguyen lieu (canManageIngredient).
+  const canDoTxn = staff?.role !== 'KITCHEN'
+  const canManageIngredient = isSuperAdmin || isCompanyAdmin
 
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
   const [branches, setBranches] = useState<{ id: number; company_id: number; name: string }[]>([])
@@ -78,7 +79,7 @@ export default function InventoryPage() {
       <PageHeader
         title="Kho nguyên liệu"
         action={
-          ready && canEdit ? (
+          ready && canManageIngredient ? (
             <Button
               onClick={() => {
                 setEditing(null)
@@ -165,15 +166,17 @@ export default function InventoryPage() {
                 </Badge>
               </td>
               <td className="px-4 py-3 text-right whitespace-nowrap">
-                {canEdit && (
+                {canDoTxn && (
+                  <button
+                    className="mr-3 text-slate-500 hover:text-indigo-600"
+                    title="Nhập / xuất kho"
+                    onClick={() => setTxnFor(i)}
+                  >
+                    <ArrowDownUp size={16} />
+                  </button>
+                )}
+                {canManageIngredient && (
                   <>
-                    <button
-                      className="mr-3 text-slate-500 hover:text-indigo-600"
-                      title="Nhập / xuất kho"
-                      onClick={() => setTxnFor(i)}
-                    >
-                      <ArrowDownUp size={16} />
-                    </button>
                     <button
                       className="mr-3 text-slate-500 hover:text-slate-800"
                       title="Sửa"
