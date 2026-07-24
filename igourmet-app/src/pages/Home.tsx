@@ -4,11 +4,7 @@ import { Gift, Wallet, CreditCard, Phone, ChevronRight, X, MessageCircle, Mail }
 import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
-// const BANNER_IMAGES = [
-//   'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=1200&h=400',
-//   'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=1200&h=400',
-//   'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&q=80&w=1200&h=400',
-// ];
+
 
 
 
@@ -329,7 +325,7 @@ const Home = () => {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-800">{"Gọi điện thoại"}</div>
-                  <div className="text-sm text-gray-500">1900 1234</div>
+                  <div className="text-sm text-gray-500">0971877469</div>
                 </div>
               </a>
               
@@ -339,7 +335,7 @@ const Home = () => {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-800">{"Gửi Email"}</div>
-                  <div className="text-sm text-gray-500">contact@igourmet.com</div>
+                  <div className="text-sm text-gray-500">ngocson87469@gmail.com</div>
                 </div>
               </a>
               
@@ -349,7 +345,7 @@ const Home = () => {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-800">{"Fanpage Facebook"}</div>
-                  <div className="text-sm text-gray-500">@igourmet.vn</div>
+                  <div className="text-sm text-gray-500">@sowncns</div>
                 </div>
               </a>
             </div>

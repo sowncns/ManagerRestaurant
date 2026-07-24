@@ -169,10 +169,13 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
       }
     };
     const currentRank = userProfile?.rank || 'normal';
-    let nextTierName = "Hạng Vàng";
-    let nextTierThreshold = 30000000;
-    
-    if (currentRank === 'gold') {
+    let nextTierName = "Hạng Bạc";
+    let nextTierThreshold = 10000000;
+
+    if (currentRank === 'silver') {
+      nextTierName = "Hạng Vàng";
+      nextTierThreshold = 30000000;
+    } else if (currentRank === 'gold') {
       nextTierName = "Hạng Bạch Kim";
       nextTierThreshold = 80000000;
     } else if (currentRank === 'platinum') {
@@ -180,7 +183,7 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
       nextTierThreshold = 80000000;
     }
 
-    const currentRankText = currentRank === 'gold' ? "Hạng Vàng" : (currentRank === 'platinum' ? "Hạng Bạch Kim" : "Thành viên");
+    const currentRankText = ({ platinum: "Hạng Bạch Kim", gold: "Hạng Vàng", silver: "Hạng Bạc", normal: "Hạng Thường" } as Record<string, string>)[currentRank] || "Hạng Thường";
     const currentPoints = parseInt(userProfile?.points || 0);
     const progressPercent = Math.min((currentPoints / nextTierThreshold) * 100, 100);
     const pointsNeeded = Math.max(nextTierThreshold - currentPoints, 0);
