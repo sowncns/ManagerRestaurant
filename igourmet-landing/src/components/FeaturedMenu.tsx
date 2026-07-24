@@ -131,7 +131,7 @@ const FeaturedMenu = ({ companies }: Props) => {
           <div className="text-center text-cream/40 py-10">Thực đơn đang được cập nhật.</div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               {pageItems.map((item) => (
                 <div key={item.id} className="group">
                   <div className="aspect-[4/5] rounded-2xl overflow-hidden mb-4 border border-white/10">

@@ -163,8 +163,8 @@ const BookingForm = ({ companies }: Props) => {
                 ))}
               </select>
               <div className="grid grid-cols-2 gap-3">
-                <input value={date} onChange={(e) => setDate(e.target.value)} type="date" className={inputClass} />
-                <input value={time} onChange={(e) => setTime(e.target.value)} type="time" className={inputClass} />
+                <input value={date} onChange={(e) => setDate(e.target.value)} type="date" className={`${inputClass} min-w-0`} />
+                <input value={time} onChange={(e) => setTime(e.target.value)} type="time" className={`${inputClass} min-w-0`} />
               </div>
 
               <textarea
