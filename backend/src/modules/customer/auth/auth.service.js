@@ -106,6 +106,7 @@ exports.verifyEmail = async (token) => {
 
     await repo.markCustomerVerified(client, t.customer_id);
     await repo.markVerificationUsed(client, t.id);
+    await repo.grantWelcomeVouchers(client, t.customer_id);
 
     await client.query("COMMIT");
     return { message: "Xác thực email thành công" };

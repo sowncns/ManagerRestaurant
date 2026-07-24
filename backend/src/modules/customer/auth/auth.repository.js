@@ -61,6 +61,17 @@ exports.markCustomerVerified = (client, customerId) =>
     [customerId]
   );
 
+// Cap tat ca voucher template dang danh dau is_welcome (con hieu luc) cho khach vua verify.
+// ON CONFLICT khong ap dung -> tranh cap trung bang cach chi goi 1 lan trong verifyEmail (token dung 1 lan).
+exports.grantWelcomeVouchers = (client, customerId) =>
+  client.query(
+    `INSERT INTO customer_vouchers (customer_id, voucher_template_id, status, assign_reason, assigned_at)
+     SELECT $1, voucher_template_id, 'unused', 'welcome', NOW()
+     FROM voucher_templates
+     WHERE is_welcome = TRUE AND status = 'active' AND NOW() BETWEEN start_date AND end_date`,
+    [customerId]
+  );
+
 // Lay email + trang thai xac thuc theo customer_id (dung khi khach da dang nhap).
 exports.findEmailStatusById = (id) =>
   pool

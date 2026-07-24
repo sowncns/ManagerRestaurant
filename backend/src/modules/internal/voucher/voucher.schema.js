@@ -25,6 +25,7 @@ const createVoucherSchema = z
     type: z.string().trim().min(1, "Vui lòng nhập loại voucher"),
     status: z.enum(STATUSES).default("active"),
     image_url: z.string().trim().url("URL ảnh không hợp lệ").optional().or(z.literal('')),
+    is_welcome: z.boolean().default(false),
     branchIds: z.array(z.number().int().positive()).optional(),
   })
   .refine((d) => new Date(d.end_date) > new Date(d.start_date), {
@@ -50,6 +51,7 @@ const updateVoucherSchema = z
     type: z.string().trim().min(1).optional(),
     status: z.enum(STATUSES).optional(),
     image_url: z.string().trim().optional(),
+    is_welcome: z.boolean().optional(),
     branchIds: z.array(z.number().int().positive()).optional(),
   })
   .refine((d) => Object.keys(d).length > 0, { message: "Không có dữ liệu cập nhật" })

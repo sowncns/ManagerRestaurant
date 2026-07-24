@@ -6,7 +6,7 @@ const BASE = `
   SELECT voucher_template_id AS id, company_id, code, name, name_en, description, description_en,
          discount_type, discount_value, min_order_amount, max_discount_amount,
          start_date, end_date, usage_limit, used_count, per_customer_limit,
-         apply_scope, type, status, image_url, created_at, updated_at,
+         apply_scope, type, status, image_url, is_welcome, created_at, updated_at,
          (SELECT array_agg(branch_id) FROM voucher_branches WHERE voucher_template_id = voucher_templates.voucher_template_id) AS "branchIds"
   FROM voucher_templates
 `;
@@ -38,14 +38,14 @@ exports.create = async (d) => {
          (company_id, code, name, name_en, description, description_en,
           discount_type, discount_value, min_order_amount, max_discount_amount,
           start_date, end_date, usage_limit, used_count, per_customer_limit,
-          apply_scope, type, status, image_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$14,$15,$16,$17,$18)
+          apply_scope, type, status, image_url, is_welcome)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$14,$15,$16,$17,$18,$19)
        RETURNING voucher_template_id AS id`,
       [
         d.company_id, d.code, d.name, d.name_en ?? null, d.description ?? null, d.description_en ?? null,
         d.discount_type, d.discount_value, d.min_order_amount, d.max_discount_amount,
         d.start_date, d.end_date, d.usage_limit, d.per_customer_limit,
-        d.apply_scope, d.type, d.status, d.image_url ?? null,
+        d.apply_scope, d.type, d.status, d.image_url ?? null, d.is_welcome ?? false,
       ]
     );
     const id = res.rows[0].id;
@@ -88,6 +88,7 @@ exports.update = async (id, d) => {
          type               = COALESCE($15, type),
          status             = COALESCE($16, status),
          image_url          = COALESCE($17, image_url),
+         is_welcome         = COALESCE($18, is_welcome),
          updated_at         = NOW()
        WHERE voucher_template_id = $1
        RETURNING voucher_template_id AS id`,
@@ -95,7 +96,7 @@ exports.update = async (id, d) => {
         id, d.name ?? null, d.name_en ?? null, d.description ?? null, d.description_en ?? null,
         d.discount_type ?? null, d.discount_value ?? null, d.min_order_amount ?? null, d.max_discount_amount ?? null,
         d.start_date ?? null, d.end_date ?? null, d.usage_limit ?? null, d.per_customer_limit ?? null,
-        d.apply_scope ?? null, d.type ?? null, d.status ?? null, d.image_url ?? null,
+        d.apply_scope ?? null, d.type ?? null, d.status ?? null, d.image_url ?? null, d.is_welcome ?? null,
       ]
     );
 

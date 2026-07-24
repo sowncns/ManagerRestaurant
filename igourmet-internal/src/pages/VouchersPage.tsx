@@ -178,6 +178,7 @@ function VoucherForm({
     apply_scope: (voucher?.apply_scope ?? 'all_branches') as ApplyScope,
     description: voucher?.description ?? '',
     image_url: (voucher as any)?.image_url ?? '',
+    is_welcome: voucher?.is_welcome ?? false,
     branchIds: voucher?.branchIds ?? ([] as number[]),
   })
   const [err, setErr] = useState('')
@@ -214,6 +215,7 @@ function VoucherForm({
         branchIds: f.apply_scope === 'selected_branches' ? f.branchIds : undefined,
         description: f.description.trim() || undefined,
         image_url: (f as any).image_url?.trim() || undefined,
+        is_welcome: f.is_welcome,
       }
       if (showCompany && f.company_id) body.company_id = Number(f.company_id)
       if (voucher) await vouchersApi.update(voucher.id, body)
@@ -346,6 +348,14 @@ function VoucherForm({
             <img src={(f as any).image_url} alt="preview" className="mt-2 w-full h-32 object-cover rounded-lg border border-slate-200" onError={(e) => (e.currentTarget.style.display = 'none')} />
           )}
         </div>
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={f.is_welcome}
+            onChange={(e) => setF((p) => ({ ...p, is_welcome: e.target.checked }))}
+          />
+          Voucher quà chào mừng (tự cấp cho khách mới sau khi xác thực email)
+        </label>
         <ErrorText>{err}</ErrorText>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>

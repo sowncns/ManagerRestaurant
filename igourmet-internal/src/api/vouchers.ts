@@ -25,6 +25,7 @@ export interface Voucher {
   apply_scope: ApplyScope
   status: VoucherStatus
   image_url?: string | null
+  is_welcome?: boolean
   branchIds?: number[]
   // chi co o GET chi tiet
   issued?: number
@@ -49,6 +50,7 @@ export interface VoucherInput {
   type: string
   status?: VoucherStatus
   image_url?: string
+  is_welcome?: boolean
   branchIds?: number[]
 }
 
