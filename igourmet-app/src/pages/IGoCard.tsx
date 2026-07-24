@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const IGoCard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'normal' | 'gold' | 'platinum'>('normal');
+  const [activeTab, setActiveTab] = useState<'normal' | 'silver' | 'gold' | 'platinum'>('normal');
   const [profile, setProfile] = useState<any>(null);
   
   const { user } = useAuth();
@@ -33,15 +33,56 @@ const IGoCard = () => {
     fetchProfile();
   }, [user]);
 
-  const tabs: ('normal' | 'gold' | 'platinum')[] = ['normal', 'gold', 'platinum'];
+  const tabs: ('normal' | 'silver' | 'gold' | 'platinum')[] = ['normal', 'silver', 'gold', 'platinum'];
   const tabLabels = {
-    normal: "Sakura",
+    normal: "Hạng Thường",
+    silver: "Hạng Bạc",
     gold: "Hạng Vàng",
     platinum: "Hạng Bạch Kim"
   };
 
+  const rankInfo: Record<string, { upgrade: string[]; keep: string[]; perks: string[] }> = {
+    normal: {
+      upgrade: [
+        "Khách hàng đăng ký chương trình thành viên miễn phí trên ứng dụng iGourmet.",
+        "Tổng tiêu dùng: < 10 triệu VND",
+      ],
+      keep: ["Không tích đủ điểm trong thời gian quy định thì điểm quay về mặc định bằng 0 điểm"],
+      perks: ["Không áp dụng cashback"],
+    },
+    silver: {
+      upgrade: ["Tổng tiêu dùng đạt 10 triệu VND trong 12 tháng"],
+      keep: [
+        "Tổng tiêu dùng đạt 10 triệu VND trong 12 tháng tính từ thời điểm nâng hạng sẽ được gia hạn Hạng Bạc.",
+        "Không đạt 10 triệu VND, thẻ trở về Hạng Thường 0 VNĐ.",
+      ],
+      perks: ["Cashback 1% giá trị hoá đơn (số tiền sẽ được cập nhật trong ví của bạn)"],
+    },
+    gold: {
+      upgrade: ["Tổng tiêu dùng đạt 30 triệu VND trong 12 tháng"],
+      keep: [
+        "Tổng tiêu dùng đạt 30 triệu VND trong 12 tháng tính từ thời điểm nâng hạng sẽ được gia hạn Hạng Vàng.",
+        "Tiêu dùng từ 10 đến dưới 30 triệu VND, thẻ trở về Hạng Bạc 0 VNĐ.",
+        "Tiêu dùng dưới 10 triệu VND, thẻ trở về Hạng Thường 0 VNĐ.",
+      ],
+      perks: ["Cashback 3% giá trị hoá đơn (số tiền sẽ được cập nhật trong ví của bạn)"],
+    },
+    platinum: {
+      upgrade: ["Tổng tiêu dùng đạt 80 triệu VND trong 12 tháng"],
+      keep: [
+        "Tổng tiêu dùng đạt 80 triệu VND trong 12 tháng tính từ thời điểm nâng hạng sẽ được gia hạn Hạng Bạch Kim.",
+        "Tiêu dùng từ 30 đến dưới 80 triệu VND, thẻ trở về Hạng Vàng 0 VNĐ.",
+        "Tiêu dùng từ 10 đến dưới 30 triệu VND, thẻ trở về Hạng Bạc 0 VNĐ.",
+        "Tiêu dùng dưới 10 triệu VND, thẻ trở về Hạng Thường 0 VNĐ.",
+      ],
+      perks: ["Cashback 5% giá trị hoá đơn (số tiền sẽ được cập nhật trong ví của bạn)"],
+    },
+  };
+
   const getCardBg = () => {
     switch(profile?.rank) {
+      case 'silver':
+        return 'from-slate-400 via-gray-400 to-zinc-500';
       case 'gold':
         return 'from-amber-400 via-yellow-500 to-orange-500';
       case 'platinum':
@@ -73,10 +114,9 @@ const IGoCard = () => {
 
           <div className="relative z-10 flex justify-between items-start mb-8">
             <div>
-              <h2 className="text-2xl font-bold">{profile?.fullname || profile?.name || "Thành viên"}</h2>
-              <p className="text-white/80 mt-1">
-                {profile?.rank === 'gold' ? "Hạng Vàng" : (profile?.rank === 'platinum' ? "Hạng Bạch Kim" : "Sakura")}
-              </p>
+              <h2 className="text-2xl font-bold">
+                {{ platinum: "Hạng Bạch Kim", gold: "Hạng Vàng", silver: "Hạng Bạc", normal: "Hạng Thường" }[profile?.rank as string] || "Hạng Thường"}
+              </h2>
             </div>
             <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
               <QrCode className="w-5 h-5 text-white" />
@@ -138,68 +178,24 @@ const IGoCard = () => {
           </div>
         )}
 
-        {/* Điều kiện nâng hạng thẻ */}
-        <div className="flex gap-4">
-          <Gift className="w-6 h-6 text-gray-700 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-2">{"Điều kiện nâng hạng thẻ"}</h3>
-            <div className="text-gray-600 text-sm leading-relaxed">
-              {activeTab === 'normal' && (
-                <ul className="space-y-2">
-                  <li>{"- Khách hàng đăng ký chương trình thành viên miễn phí trên ứng dụng iGourmet."}</li>
-                  <li>{"- Tổng tiêu dùng: < 30 triệu VND"}</li>
-                </ul>
-              )}
-              {activeTab === 'gold' && (
-                <p>{"Tổng tiêu dùng > 30,000,000VND"}</p>
-              )}
-              {activeTab === 'platinum' && (
-                <p>{"Tổng tiêu dùng > 80,000,000VND"}</p>
-              )}
+        {([
+          { title: "Điều kiện nâng hạng thẻ", lines: rankInfo[activeTab].upgrade },
+          { title: "Điều kiện duy trì hạng thẻ", lines: rankInfo[activeTab].keep },
+          { title: "Quyền lợi", lines: rankInfo[activeTab].perks },
+        ]).map((section, i) => (
+          <div key={section.title}>
+            {i > 0 && <div className="border-b border-gray-100 mb-6"></div>}
+            <div className="flex gap-4">
+              <Gift className="w-6 h-6 text-gray-700 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-2">{section.title}</h3>
+                <div className="text-gray-600 text-sm leading-relaxed space-y-2">
+                  {section.lines.map((line, j) => <p key={j}>{`- ${line}`}</p>)}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="border-b border-gray-100"></div>
-
-        {/* Điều kiện duy trì hạng thẻ */}
-        <div className="flex gap-4">
-          <Gift className="w-6 h-6 text-gray-700 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-2">{"Điều kiện duy trì hạng thẻ"}</h3>
-            <div className="text-gray-600 text-sm leading-relaxed space-y-4">
-              {activeTab === 'normal' && (
-                <p>{"Không tích đủ điểm trong thời gian quy định thì điểm quay về mặc định bằng 0 điểm"}</p>
-              )}
-              {activeTab === 'gold' && (
-                <>
-                  <p>{"- Tổng giá trị tiêu dùng đạt 30 triệu VND trong 12 tháng tính từ thời điểm nâng hạng thẻ sẽ được gia hạn hạng thẻ Gold"}</p>
-                  <p>{"- Tổng giá trị tiêu dùng không đạt mức 30 triệu VND tính từ thời điểm nâng hạng thẻ thì điểm quay về thẻ lùi về hạng SAKURA 0 VNĐ."}</p>
-                </>
-              )}
-              {activeTab === 'platinum' && (
-                <>
-                  <p>{"- Tổng giá trị tiêu dùng đạt 80 triệu VND trong 12 tháng tính từ thời điểm nâng hạng thẻ sẽ được gia hạn hạng thẻ Platinum."}</p>
-                  <p>{"- Tiêu dùng trên 30 triệu và dưới mức 80 triệu VND, thẻ trở về hạng Gold 0 VNĐ."}</p>
-                  <p>{"- Tiêu dùng dưới 30 triệu VND, thẻ trở về hạng Sakura 0 VNĐ."}</p>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-100"></div>
-
-        {/* Quyền lợi */}
-        <div className="flex gap-4">
-          <Gift className="w-6 h-6 text-gray-700 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-2">{"Quyền lợi"}</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {"- Cashback 5% giá trị hoá đơn (số tiền sẽ được cập nhật trong ví của bạn)"}
-            </p>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Floating QR Button */}
