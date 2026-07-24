@@ -28,6 +28,13 @@ export interface AdminOverview {
   }[]
 }
 
+export interface TopItem {
+  menu_item_id: number
+  item_name: string
+  total_quantity: number | string
+  total_revenue: number | string
+}
+
 export const reportsApi = {
   async dashboard(companyId?: number | '', branchId?: number | ''): Promise<DashboardData> {
     const params: any = {}
@@ -35,6 +42,14 @@ export const reportsApi = {
     if (branchId) params.branch_id = branchId
     const { data } = await api.get('/internal/reports/dashboard', { params })
     return data.data
+  },
+  // Mon da ban theo khoang ngay (from/to = YYYY-MM-DD, inclusive). limit lon de lay het.
+  async topItems(opts: { from: string; to: string; limit?: number; companyId?: number | ''; branchId?: number | '' }): Promise<TopItem[]> {
+    const params: any = { from: opts.from, to: opts.to, limit: opts.limit ?? 500 }
+    if (opts.companyId) params.company_id = opts.companyId
+    if (opts.branchId) params.branch_id = opts.branchId
+    const { data } = await api.get('/internal/reports/top-items', { params })
+    return data.data ?? data
   },
   async adminOverview(): Promise<AdminOverview> {
     const { data } = await api.get('/internal/reports/admin-overview')

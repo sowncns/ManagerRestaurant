@@ -19,6 +19,7 @@ import CompaniesPage from './pages/CompaniesPage'
 import CashbackRatesPage from './pages/CashbackRatesPage'
 import HomeBannersPage from './pages/HomeBannersPage'
 import VouchersPage from './pages/VouchersPage'
+import SalesReportPage from './pages/SalesReportPage'
 import { ROLE_GROUPS } from './config/nav'
 import { useAuth } from './context/AuthContext'
 
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="menu" element={<MenuPage />} />
             <Route path="staff" element={<EmployeesPage />} />
             <Route path="branches" element={<BranchesPage />} />
+            <Route path="sales-report" element={<SalesReportPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>
 

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Utensils, ClipboardList, Users, Grid3x3, Map, Store, Package, Building2, Ban, ChefHat, FileText, Ticket, Coins, ReceiptText, Images } from 'lucide-react'
+import { LayoutDashboard, Utensils, ClipboardList, Users, Grid3x3, Map, Store, Package, Building2, Ban, ChefHat, FileText, Ticket, Coins, ReceiptText, Images, BarChart3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Role } from '../types/auth'
 
@@ -44,6 +44,7 @@ export const nav: NavItem[] = [
   { to: '/orders', label: 'Đơn hàng', icon: ClipboardList, roles: ROLE_GROUPS.WAITER },
   { to: '/kitchen', label: 'Bếp', icon: ChefHat, roles: ROLE_GROUPS.KITCHEN },
   { to: '/cancel-requests', label: 'Yêu cầu hủy', icon: Ban, roles: ROLE_GROUPS.CANCEL_REQUESTS },
+  { to: '/sales-report', label: 'Món đã bán', icon: BarChart3, roles: ROLE_GROUPS.MANAGERS },
   { to: '/menu', label: 'Thực đơn', icon: Utensils, roles: ROLE_GROUPS.MANAGERS },
   { to: '/branches', label: 'Chi nhánh', icon: Store, roles: ROLE_GROUPS.MANAGERS },
   { to: '/inventory', label: 'Kho', icon: Package, roles: ROLE_GROUPS.INVENTORY },
