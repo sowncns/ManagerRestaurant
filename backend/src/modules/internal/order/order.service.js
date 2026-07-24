@@ -1,7 +1,7 @@
 // src/modules/internal/order/order.service.js
 const pool = require("../../../config/db");
 const repo = require("./order.repository");
-const { consumeForDish } = require("../../../shared/services/consumption.service");
+const { consumeForDish, assertStockForNewItems } = require("../../../shared/services/consumption.service");
 const depositService = require("../../../shared/services/deposit.service");
 const { assertBranchScope } = require("../../../shared/utils/permission");
 const { getCashbackRate } = require("../../../shared/services/cashback.service");
@@ -98,6 +98,7 @@ async function createOrder(data) {
     });
 
     if (items.length > 0) {
+      await assertStockForNewItems(client, branch_id, items);
       await repo.bulkInsertOrderItems(client, order.id, items, waiter_id);
     }
     await repo.setTableStatus(client, table_id, "SERVING");
@@ -142,6 +143,7 @@ async function addOrderItems(orderId, data) {
     const menuById = new Map(menuRows.map((r) => [r.id, r]));
     const { items, subtotal, totalVat } = buildItems(reqItems, menuById, { requireAvailable: false });
 
+    await assertStockForNewItems(client, branch_id, items);
     await repo.bulkInsertOrderItems(client, orderId, items, waiter_id);
     await repo.updateOrderTotals(client, orderId, subtotal, totalVat);
     await client.query("COMMIT");

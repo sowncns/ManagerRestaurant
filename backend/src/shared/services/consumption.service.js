@@ -10,6 +10,7 @@
 //   * KHONG chan nau khi thieu ton kho (ton co the am); chi canh bao de nhap them.
 
 const logger = require("../utils/logger");
+const { BadRequest } = require("../errors/AppError");
 
 // Tinh nhu cau nguyen lieu cho danh sach mon [{menu_item_id, qty}] (KHONG tru kho).
 async function calculateNeeds(db, dishItems, branchId) {
@@ -106,4 +107,63 @@ async function consumeForDish(client, dish, { orderId, branchId, orderItemId, cr
   });
 }
 
-module.exports = { calculateNeeds, deductNeeds, consumeForDish };
+// Chan oversell: kiem tra ton kho DU cho cac mon MOI truoc khi nhan vao don.
+// Chinh sach A: available = current_stock - nhu cau cac mon dang WAITING (chua nau) cua chi nhanh.
+//   - Mon da nau: da tru khoi current_stock -> khong tinh lai.
+//   - Mon dang WAITING: chua tru -> la nhu cau da "giu cho".
+// PHAI chay trong transaction. Khoa branch_inventory TRUOC khi tinh nhu cau WAITING (chong race 2 order dong thoi).
+// newItems = [{ menu_item_id, quantity }].
+async function assertStockForNewItems(client, branchId, newItems) {
+  const needs = await calculateNeeds(
+    client,
+    newItems.map((i) => ({ menu_item_id: i.menu_item_id, qty: i.quantity })),
+    branchId
+  );
+  if (!needs.length) return; // mon khong co cong thuc -> khong kiem tra
+
+  const ids = needs.map((n) => n.ingredient_id).sort((a, b) => a - b);
+  const locked = await client.query(
+    `SELECT ingredient_id AS id, current_stock
+     FROM branch_inventory WHERE ingredient_id = ANY($1::int[]) AND branch_id = $2
+     ORDER BY ingredient_id FOR UPDATE`,
+    [ids, branchId]
+  );
+  const stockById = new Map(locked.rows.map((r) => [r.id, Number(r.current_stock)]));
+
+  // Nhu cau cac mon dang WAITING (chua tru kho) cua don dine-in dang hoat dong.
+  // Chi tinh don dang phuc vu (khong tinh preorder SCHEDULED - dat cho tuong lai, kho co the nhap them truoc).
+  // ponytail: danh sach status dine-in copy tu order.repository.ACTIVE_STATUSES; doi 1 cho thi sua ca 2.
+  const waiting = await client.query(
+    `SELECT r.ingredient_id, SUM(oi.quantity * r.quantity) AS required
+     FROM order_items oi
+     JOIN orders o ON o.order_id = oi.order_id
+     JOIN recipes r ON r.menu_item_id = oi.menu_item_id
+     WHERE o.branch_id = $2
+       AND o.status = ANY('{PENDING,CONFIRMED,PREPARING,READY,SERVED}'::text[])
+       AND COALESCE(oi.kitchen_status, 'WAITING') = 'WAITING'
+       AND r.ingredient_id = ANY($1::int[])
+     GROUP BY r.ingredient_id`,
+    [ids, branchId]
+  );
+  const waitingById = new Map(waiting.rows.map((r) => [r.ingredient_id, Number(r.required)]));
+
+  const shortIds = [];
+  for (const n of needs) {
+    const stock = stockById.get(n.ingredient_id);
+    if (stock == null) continue; // chi nhanh chua khai bao ton kho nguyen lieu nay -> giu hanh vi cu (khong chan)
+    const available = stock - (waitingById.get(n.ingredient_id) || 0);
+    if (n.required > available) shortIds.push(n.ingredient_id);
+  }
+  if (!shortIds.length) return;
+
+  // Map nguyen lieu thieu -> mon nao trong don khong lam duoc (chi bao ten MON, khong lo nguyen lieu).
+  const affected = await client.query(
+    `SELECT DISTINCT menu_item_id FROM recipes WHERE menu_item_id = ANY($1::int[]) AND ingredient_id = ANY($2::int[])`,
+    [newItems.map((i) => i.menu_item_id), shortIds]
+  );
+  const nameById = new Map(newItems.map((i) => [i.menu_item_id, i.item_name]));
+  const dishes = [...new Set(affected.rows.map((r) => nameById.get(r.menu_item_id)).filter(Boolean))];
+  throw new BadRequest(dishes.length ? `Đã hết món: ${dishes.join(", ")}` : "Món đã hết");
+}
+
+module.exports = { calculateNeeds, deductNeeds, consumeForDish, assertStockForNewItems };
