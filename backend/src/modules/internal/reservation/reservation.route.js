@@ -11,6 +11,7 @@ const {
   changeStatusSchema,
   checkinSchema,
   assignTableSchema,
+  confirmCallSchema,
 } = require("./reservation.schema");
 
 const router = express.Router();
@@ -23,8 +24,10 @@ router.use(requireAuth);
 
 router.get("/", readRoles, controller.list);
 router.get("/alerts", deskRoles, controller.getAlerts); // truoc /:id de khong bi nuot
+router.get("/call-list", deskRoles, controller.callList); // truoc /:id
 router.get("/stream", deskRoles, controller.stream); // SSE push, thay polling alerts
 router.get("/:id", readRoles, controller.get);
+router.patch("/:id/confirm-call", deskRoles, validate(confirmCallSchema), controller.confirmCall);
 router.get("/:id/suggest-table", deskRoles, controller.suggestTable);
 router.post("/", deskRoles, validate(createReservationSchema), controller.create);
 router.put("/:id", deskRoles, validate(updateReservationSchema), controller.update);

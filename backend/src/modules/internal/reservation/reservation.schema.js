@@ -52,6 +52,10 @@ const assignTableSchema = z.object({
   table_id: z.coerce.number().int().positive("Vui lòng chọn bàn"),
 });
 
+const confirmCallSchema = z.object({
+  confirmed: z.boolean().optional(), // mac dinh true (danh dau da goi)
+});
+
 module.exports = {
   RESERVATION_STATUSES,
   createReservationSchema,
@@ -59,4 +63,5 @@ module.exports = {
   changeStatusSchema,
   checkinSchema,
   assignTableSchema,
+  confirmCallSchema,
 };

@@ -133,6 +133,38 @@ exports.findAlerts = (currentUser, windowMinutes) => {
     .then((r) => r.rows);
 };
 
+// ----- Danh sach goi xac nhan (le tan) -----
+// Phieu HOM NAY chua check-in, kem mon dat truoc (don SCHEDULED) neu co.
+// Scope chi nhanh giong findAlerts. Sap theo gio hen tang dan.
+exports.callList = (currentUser) => {
+  const values = [];
+  let scope = "";
+  if (currentUser.role === "COMPANY_ADMIN") { values.push(currentUser.company_id); scope = `AND b.company_id = $${values.length}`; }
+  else if (currentUser.role !== "SUPER_ADMIN") { values.push(currentUser.branch_id); scope = `AND b.branch_id = $${values.length}`; }
+  return pool
+    .query(
+      `SELECT r.reservation_id AS id, r.reservation_code, r.customer_name, r.customer_phone,
+              r.guest_count, r.reservation_date, r.reservation_time, r.status, r.table_id,
+              r.call_confirmed_at, b.branch_id, b.company_id,
+              dt.table_number, dt.table_name,
+              ROUND(EXTRACT(EPOCH FROM (r.reservation_time - LOCALTIME)) / 60)::int AS minutes_until,
+              COALESCE((
+                SELECT json_agg(json_build_object('item_name', oi.item_name, 'quantity', oi.quantity) ORDER BY oi.order_item_id)
+                FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+                WHERE o.reservation_id = r.reservation_id AND o.status = 'SCHEDULED'
+              ), '[]'::json) AS preorder_items
+       FROM reservations r
+       JOIN branches b ON b.branch_id = r.branch_id
+       LEFT JOIN dining_tables dt ON dt.table_id = r.table_id
+       WHERE r.reservation_date = CURRENT_DATE
+         AND r.status IN ('PENDING','CONFIRMED')
+         ${scope}
+       ORDER BY r.reservation_time ASC`,
+      values
+    )
+    .then((r) => r.rows);
+};
+
 exports.create = (data) =>
   pool
     .query(

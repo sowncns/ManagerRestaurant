@@ -42,6 +42,28 @@ export interface ReservationAlert {
   message: string
 }
 
+export interface PreorderItem {
+  item_name: string
+  quantity: number
+}
+
+export interface CallListItem {
+  id: number
+  reservation_code: string
+  customer_name: string
+  customer_phone: string
+  guest_count: number
+  reservation_date: string
+  reservation_time: string
+  table_id: number | null
+  table_number: string | null
+  table_name: string | null
+  status: ReservationStatus
+  call_confirmed_at: string | null
+  minutes_until: number
+  preorder_items: PreorderItem[]
+}
+
 export interface SuggestedTable {
   id: number
   table_number: string
@@ -69,6 +91,13 @@ export const reservationsApi = {
   async getAlerts(): Promise<ReservationAlert[]> {
     const { data } = await api.get('/internal/reservations/alerts')
     return data.alerts
+  },
+  async callList(): Promise<CallListItem[]> {
+    const { data } = await api.get('/internal/reservations/call-list')
+    return data.items
+  },
+  async confirmCall(id: number, confirmed: boolean): Promise<void> {
+    await api.patch(`/internal/reservations/${id}/confirm-call`, { confirmed })
   },
   async suggestTable(id: number): Promise<SuggestedTable | null> {
     const { data } = await api.get(`/internal/reservations/${id}/suggest-table`)

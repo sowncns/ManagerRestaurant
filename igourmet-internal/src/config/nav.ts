@@ -1,4 +1,4 @@
-import { LayoutDashboard, Utensils, ClipboardList, Users, Grid3x3, Map, Store, Package, Building2, Ban, ChefHat, FileText, Ticket, Coins, ReceiptText, Images, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Utensils, ClipboardList, Users, Grid3x3, Map, Store, Package, Building2, Ban, ChefHat, FileText, Ticket, Coins, ReceiptText, Images, BarChart3, PhoneCall } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Role } from '../types/auth'
 
@@ -39,6 +39,7 @@ export const nav: NavItem[] = [
   { to: '/cashback-rates', label: 'Cashback', icon: Coins, roles: ['SUPER_ADMIN'] },
   { to: '/home-banners', label: 'Ảnh trang chủ', icon: Images, roles: ['SUPER_ADMIN'] },
   { to: '/floor', label: 'Sơ đồ bàn', icon: Map, roles: ROLE_GROUPS.RECEPTIONIST },
+  { to: '/reservation-calls', label: 'Gọi xác nhận', icon: PhoneCall, roles: ROLE_GROUPS.RECEPTIONIST },
   { to: '/tables', label: 'Thu ngân', icon: Grid3x3, roles: ROLE_GROUPS.CASHIER },
   { to: '/invoices', label: 'Công nợ', icon: ReceiptText, roles: ROLE_GROUPS.CASHIER },
   { to: '/orders', label: 'Đơn hàng', icon: ClipboardList, roles: ROLE_GROUPS.WAITER },

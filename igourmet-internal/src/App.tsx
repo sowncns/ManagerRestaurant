@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Forbidden from './pages/Forbidden'
 import ProtectedRoute from './components/ProtectedRoute'
 import FloorMapPage from './pages/FloorMapPage'
+import CallConfirmPage from './pages/CallConfirmPage'
 import TablesPage from './pages/TablesPage'
 import OrdersPage from './pages/OrdersPage'
 import InvoicesPage from './pages/InvoicesPage'
@@ -52,6 +53,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={ROLE_GROUPS.RECEPTIONIST} />}>
             <Route path="floor" element={<FloorMapPage />} />
+            <Route path="reservation-calls" element={<CallConfirmPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={ROLE_GROUPS.CASHIER} />}>

@@ -227,6 +227,21 @@ exports.getAlerts = async (currentUser) => {
   });
 };
 
+// Danh sach goi xac nhan trong ngay (le tan).
+exports.callList = (currentUser) => repo.callList(currentUser);
+
+// Danh dau / bo danh dau "da goi xac nhan".
+exports.confirmCall = async (currentUser, id, confirmed) => {
+  const reservation = await repo.findById(id);
+  if (!reservation) throw new NotFound("Không tìm thấy phiếu đặt bàn");
+  assertBranchScope(currentUser, { id: reservation.branch_id, company_id: reservation.company_id });
+  await repo.update(id, {
+    call_confirmed_at: confirmed ? new Date() : null,
+    call_confirmed_by: confirmed ? currentUser.id : null,
+  });
+  return repo.findById(id);
+};
+
 exports.checkin = async (currentUser, id, tableId) => {
   const client = await pool.connect();
   try {

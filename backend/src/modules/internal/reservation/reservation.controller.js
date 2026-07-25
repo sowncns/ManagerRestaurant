@@ -51,6 +51,21 @@ exports.getAlerts = asyncHandler(async (req, res) => {
   res.json({ message: "Cảnh báo đặt bàn sắp tới", alerts });
 });
 
+exports.callList = asyncHandler(async (req, res) => {
+  const items = await service.callList(req.user);
+  res.json({ message: "Danh sách gọi xác nhận", items });
+});
+
+exports.confirmCall = asyncHandler(async (req, res) => {
+  const confirmed = req.body.confirmed !== false; // mac dinh true
+  const reservation = await service.confirmCall(req.user, parseId(req.params.id, "reservation id"), confirmed);
+  audit.record(audit.ctx(req), {
+    action: confirmed ? "CALL_CONFIRM" : "CALL_UNCONFIRM", entityType: "RESERVATION", entityId: reservation.id,
+    description: `${confirmed ? "Đã gọi xác nhận" : "Bỏ đánh dấu gọi"} phiếu đặt của "${reservation.customer_name}"`,
+  });
+  res.json({ message: "Cập nhật gọi xác nhận thành công", reservation });
+});
+
 exports.suggestTable = asyncHandler(async (req, res) => {
   const table = await service.suggestTable(req.user, parseId(req.params.id, "reservation id"));
   res.json({ message: table ? "Gợi ý bàn phù hợp" : "Không còn bàn trống phù hợp", table });
