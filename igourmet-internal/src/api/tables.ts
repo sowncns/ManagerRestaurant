@@ -42,6 +42,10 @@ export const tablesApi = {
     const { data } = await api.get('/internal/dining-tables/sections')
     return data.sections
   },
+  async createSection(body: Record<string, unknown>): Promise<Section> {
+    const { data } = await api.post('/internal/dining-tables/sections', body)
+    return data.section
+  },
   async list(): Promise<DiningTable[]> {
     const { data } = await api.get('/internal/dining-tables/tables')
     return data.tables
