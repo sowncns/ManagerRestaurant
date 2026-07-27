@@ -32,6 +32,7 @@ export interface DiningTable {
 export interface Section {
   id: number
   branch_id: number
+  branch_name: string | null
   name: string
   section_type: string | null
   status: string

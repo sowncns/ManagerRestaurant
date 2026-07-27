@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { tablesApi, type DiningTable, type Section } from '../api/tables'
+import { branchesApi, type Branch } from '../api/branches'
 import { errMsg } from '../lib/errMsg'
-import { Button, PageHeader, Table, Modal, Input, Badge, ErrorText } from '../components/ui'
+import { Button, PageHeader, Table, Modal, Input, Select, Badge, ErrorText } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 
 export default function SectionsPage() {
   const { staff } = useAuth()
+  // Chi nhanh don le (BRANCH_MANAGER) khong can chon chi nhanh, chi thay bo loc khi quan ly nhieu chi nhanh.
+  const canPickBranch = staff?.role === 'SUPER_ADMIN' || staff?.role === 'COMPANY_ADMIN'
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [filterBranchId, setFilterBranchId] = useState<number | ''>('')
   const [sections, setSections] = useState<Section[]>([])
   const [tables, setTables] = useState<DiningTable[]>([])
   const [editingSection, setEditingSection] = useState<Section | null>(null)
@@ -20,6 +25,7 @@ export default function SectionsPage() {
       const [secs, tbls] = await Promise.all([tablesApi.listSections(), tablesApi.list()])
       setSections(secs)
       setTables(tbls)
+      if (canPickBranch) setBranches(await branchesApi.list())
     } catch (e) {
       setErr(errMsg(e))
     }
@@ -27,7 +33,18 @@ export default function SectionsPage() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const visibleSections = useMemo(() => {
+    if (!filterBranchId) return sections
+    return sections.filter((s) => s.branch_id === filterBranchId)
+  }, [sections, filterBranchId])
+
+  const visibleTables = useMemo(() => {
+    if (!filterBranchId) return tables
+    return tables.filter((t) => t.branch_id === filterBranchId)
+  }, [tables, filterBranchId])
 
   const tableCountBySection = useMemo(() => {
     const m = new Map<number | null, number>()
@@ -55,8 +72,27 @@ export default function SectionsPage() {
     }
   }
 
+  const branchHeader = canPickBranch ? ['Chi nhánh'] : []
+
   return (
     <div className="flex flex-col gap-8">
+      {canPickBranch && (
+        <div className="flex items-center gap-3">
+          <Select
+            value={filterBranchId}
+            onChange={(e) => setFilterBranchId(e.target.value ? Number(e.target.value) : '')}
+            className="w-full sm:w-auto min-w-[220px]"
+          >
+            <option value="">Tất cả chi nhánh</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <div>
         <PageHeader
           title="Khu vực"
@@ -72,10 +108,11 @@ export default function SectionsPage() {
           }
         />
         <ErrorText>{err}</ErrorText>
-        <Table headers={['Tên khu vực', 'Loại', 'Số bàn', 'Trạng thái', '']}>
-          {sections.map((s) => (
+        <Table headers={['Tên khu vực', ...branchHeader, 'Loại', 'Số bàn', 'Trạng thái', '']}>
+          {visibleSections.map((s) => (
             <tr key={s.id}>
               <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
+              {canPickBranch && <td className="px-4 py-3 text-slate-500">{s.branch_name || '—'}</td>}
               <td className="px-4 py-3 text-slate-500">{s.section_type || '—'}</td>
               <td className="px-4 py-3 text-slate-600">{tableCountBySection.get(s.id) ?? 0}</td>
               <td className="px-4 py-3">
@@ -125,10 +162,11 @@ export default function SectionsPage() {
             </Button>
           }
         />
-        <Table headers={['Bàn', 'Khu vực', 'Sức chứa', 'Trạng thái', '']}>
-          {tables.map((t) => (
+        <Table headers={['Bàn', ...branchHeader, 'Khu vực', 'Sức chứa', 'Trạng thái', '']}>
+          {visibleTables.map((t) => (
             <tr key={t.id}>
               <td className="px-4 py-3 font-medium text-slate-800">{t.table_name || `Bàn ${t.table_number}`}</td>
+              {canPickBranch && <td className="px-4 py-3 text-slate-500">{t.branch_name || '—'}</td>}
               <td className="px-4 py-3 text-slate-500">{t.section_name || 'Chưa phân khu'}</td>
               <td className="px-4 py-3 text-slate-600">{t.capacity}</td>
               <td className="px-4 py-3">
@@ -161,7 +199,8 @@ export default function SectionsPage() {
       {sectionOpen && (
         <SectionForm
           section={editingSection}
-          branchId={staff?.branch_id}
+          defaultBranchId={staff?.branch_id ?? (filterBranchId || undefined)}
+          branches={canPickBranch ? branches : []}
           onClose={() => setSectionOpen(false)}
           onSaved={() => {
             setSectionOpen(false)
@@ -174,7 +213,8 @@ export default function SectionsPage() {
         <TableForm
           table={editingTable}
           sections={sections}
-          branchId={staff?.branch_id}
+          defaultBranchId={staff?.branch_id ?? (filterBranchId || undefined)}
+          branches={canPickBranch ? branches : []}
           onClose={() => setTableOpen(false)}
           onSaved={() => {
             setTableOpen(false)
@@ -188,17 +228,22 @@ export default function SectionsPage() {
 
 function SectionForm({
   section,
-  branchId,
+  defaultBranchId,
+  branches,
   onClose,
   onSaved,
 }: {
   section: Section | null
-  branchId?: string | null
+  defaultBranchId?: string | number
+  branches: Branch[]
   onClose: () => void
   onSaved: () => void
 }) {
   const [name, setName] = useState(section?.name ?? '')
   const [sectionType, setSectionType] = useState(section?.section_type ?? '')
+  const [branchId, setBranchId] = useState<string>(
+    section ? String(section.branch_id) : defaultBranchId != null ? String(defaultBranchId) : ''
+  )
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -222,6 +267,23 @@ function SectionForm({
   return (
     <Modal open title={section ? 'Sửa khu vực' : 'Thêm khu vực'} onClose={onClose}>
       <div className="flex flex-col gap-3">
+        {!section && branches.length > 0 && (
+          <label className="text-sm font-medium text-slate-700">
+            Chi nhánh
+            <select
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            >
+              <option value="">-- Chọn chi nhánh --</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <Input label="Tên khu vực" value={name} onChange={(e) => setName(e.target.value)} />
         <Input
           label="Loại khu vực (tùy chọn)"
@@ -245,13 +307,15 @@ function SectionForm({
 function TableForm({
   table,
   sections,
-  branchId,
+  defaultBranchId,
+  branches,
   onClose,
   onSaved,
 }: {
   table: DiningTable | null
   sections: Section[]
-  branchId?: string | null
+  defaultBranchId?: string | number
+  branches: Branch[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -259,8 +323,15 @@ function TableForm({
   const [tableName, setTableName] = useState(table?.table_name ?? '')
   const [capacity, setCapacity] = useState(String(table?.capacity ?? 4))
   const [sectionId, setSectionId] = useState(table?.section_id != null ? String(table.section_id) : '')
+  const [branchId, setBranchId] = useState<string>(
+    table ? String(table.branch_id) : defaultBranchId != null ? String(defaultBranchId) : ''
+  )
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const sectionsInBranch = branches.length > 0 && branchId
+    ? sections.filter((s) => String(s.branch_id) === branchId)
+    : sections
 
   async function submit() {
     setSaving(true)
@@ -288,6 +359,26 @@ function TableForm({
   return (
     <Modal open title={table ? 'Sửa bàn' : 'Thêm bàn'} onClose={onClose}>
       <div className="flex flex-col gap-3">
+        {!table && branches.length > 0 && (
+          <label className="text-sm font-medium text-slate-700">
+            Chi nhánh
+            <select
+              value={branchId}
+              onChange={(e) => {
+                setBranchId(e.target.value)
+                setSectionId('')
+              }}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            >
+              <option value="">-- Chọn chi nhánh --</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <Input label="Số bàn" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} />
         <Input label="Tên bàn (tùy chọn)" value={tableName ?? ''} onChange={(e) => setTableName(e.target.value)} />
         <Input
@@ -304,7 +395,7 @@ function TableForm({
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
           >
             <option value="">Chưa phân khu</option>
-            {sections.map((s) => (
+            {sectionsInBranch.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
