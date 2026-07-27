@@ -22,7 +22,7 @@ router.delete("/sections/:sectionId", managerOnly, controller.deleteSection);
 // Ban an
 router.get("/tables", staffOnly, controller.listTables);
 router.get("/tables/:tableId", staffOnly, controller.getTableById);
-router.post("/tables", staffOnly, controller.createTable);
+router.post("/tables", managerOnly, controller.createTable);
 router.put("/tables/:tableId", staffOnly, controller.updateTable);
 router.patch("/tables/:tableId/status", staffOnly, controller.changeTableStatus);
 router.delete("/tables/:tableId", managerOnly, controller.deleteTable);

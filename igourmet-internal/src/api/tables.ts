@@ -42,6 +42,17 @@ export const tablesApi = {
     const { data } = await api.get('/internal/dining-tables/sections')
     return data.sections
   },
+  async createSection(body: Record<string, unknown>): Promise<Section> {
+    const { data } = await api.post('/internal/dining-tables/sections', body)
+    return data.section
+  },
+  async updateSection(id: number, body: Record<string, unknown>): Promise<Section> {
+    const { data } = await api.put(`/internal/dining-tables/sections/${id}`, body)
+    return data.section
+  },
+  async removeSection(id: number): Promise<void> {
+    await api.delete(`/internal/dining-tables/sections/${id}`)
+  },
   async list(): Promise<DiningTable[]> {
     const { data } = await api.get('/internal/dining-tables/tables')
     return data.tables

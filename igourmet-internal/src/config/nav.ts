@@ -48,6 +48,7 @@ export const nav: NavItem[] = [
   { to: '/sales-report', label: 'Món đã bán', icon: BarChart3, roles: ROLE_GROUPS.MANAGERS },
   { to: '/menu', label: 'Thực đơn', icon: Utensils, roles: ROLE_GROUPS.MANAGERS },
   { to: '/branches', label: 'Chi nhánh', icon: Store, roles: ROLE_GROUPS.MANAGERS },
+  { to: '/sections', label: 'Khu vực & Bàn', icon: Grid3x3, roles: ROLE_GROUPS.MANAGERS },
   { to: '/inventory', label: 'Kho', icon: Package, roles: ROLE_GROUPS.INVENTORY },
   { to: '/staff', label: 'Nhân viên', icon: Users, roles: ROLE_GROUPS.MANAGERS },
   { to: '/audit-logs', label: 'Nhật ký hệ thống', icon: FileText, roles: ROLE_GROUPS.MANAGERS },

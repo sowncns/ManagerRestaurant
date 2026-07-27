@@ -242,6 +242,7 @@ function SectionTab({
 }
 
 function TableForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { staff } = useAuth()
   const [tableNumber, setTableNumber] = useState('')
   const [tableName, setTableName] = useState('')
   const [capacity, setCapacity] = useState('4')
@@ -253,6 +254,7 @@ function TableForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
     setErr('')
     try {
       await tablesApi.create({
+        branch_id: staff?.branch_id,
         table_number: tableNumber,
         table_name: tableName || null,
         capacity: Number(capacity),

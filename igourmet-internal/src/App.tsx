@@ -14,6 +14,7 @@ import CancelRequestsPage from './pages/CancelRequestsPage'
 import MenuPage from './pages/MenuPage'
 import EmployeesPage from './pages/EmployeesPage'
 import BranchesPage from './pages/BranchesPage'
+import SectionsPage from './pages/SectionsPage'
 import InventoryPage from './pages/InventoryPage'
 import AuditLogsPage from './pages/AuditLogsPage'
 import CompaniesPage from './pages/CompaniesPage'
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="menu" element={<MenuPage />} />
             <Route path="staff" element={<EmployeesPage />} />
             <Route path="branches" element={<BranchesPage />} />
+            <Route path="sections" element={<SectionsPage />} />
             <Route path="sales-report" element={<SalesReportPage />} />
             <Route path="audit-logs" element={<AuditLogsPage />} />
           </Route>
