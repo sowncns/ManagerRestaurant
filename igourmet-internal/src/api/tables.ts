@@ -17,6 +17,7 @@ export interface UpcomingReservation {
 export interface DiningTable {
   id: number
   branch_id: number
+  branch_name: string | null
   section_id: number | null
   section_name: string | null
   table_number: string
