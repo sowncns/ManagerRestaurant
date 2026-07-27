@@ -31,6 +31,7 @@ export default function TablesPage() {
   const [sections, setSections] = useState<Section[]>([])
   const [activeSection, setActiveSection] = useState<SectionFilter>(ALL)
   const [open, setOpen] = useState(false)
+  const [sectionOpen, setSectionOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<DiningTable | null>(null)
   const [err, setErr] = useState('')
   const { staff } = useAuth()
@@ -86,9 +87,14 @@ export default function TablesPage() {
         title="Thu ngân"
         action={
           canManageTables ? (
-            <Button onClick={() => setOpen(true)}>
-              <Plus size={16} /> Thêm bàn
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setSectionOpen(true)}>
+                <Plus size={16} /> Thêm khu vực
+              </Button>
+              <Button onClick={() => setOpen(true)}>
+                <Plus size={16} /> Thêm bàn
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -205,6 +211,16 @@ export default function TablesPage() {
           }}
         />
       )}
+
+      {sectionOpen && (
+        <SectionForm
+          onClose={() => setSectionOpen(false)}
+          onSaved={() => {
+            setSectionOpen(false)
+            void load()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -242,6 +258,7 @@ function SectionTab({
 }
 
 function TableForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { staff } = useAuth()
   const [tableNumber, setTableNumber] = useState('')
   const [tableName, setTableName] = useState('')
   const [capacity, setCapacity] = useState('4')
@@ -253,6 +270,7 @@ function TableForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
     setErr('')
     try {
       await tablesApi.create({
+        branch_id: staff?.branch_id,
         table_number: tableNumber,
         table_name: tableName || null,
         capacity: Number(capacity),
@@ -275,6 +293,53 @@ function TableForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
           type="number"
           value={capacity}
           onChange={(e) => setCapacity(e.target.value)}
+        />
+        <ErrorText>{err}</ErrorText>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? 'Đang lưu...' : 'Lưu'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function SectionForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { staff } = useAuth()
+  const [name, setName] = useState('')
+  const [sectionType, setSectionType] = useState('')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit() {
+    setSaving(true)
+    setErr('')
+    try {
+      await tablesApi.createSection({
+        branch_id: staff?.branch_id,
+        name,
+        section_type: sectionType || null,
+      })
+      onSaved()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open title="Thêm khu vực" onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <Input label="Tên khu vực" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          label="Loại khu vực (tùy chọn)"
+          value={sectionType}
+          onChange={(e) => setSectionType(e.target.value)}
         />
         <ErrorText>{err}</ErrorText>
         <div className="flex justify-end gap-2">
