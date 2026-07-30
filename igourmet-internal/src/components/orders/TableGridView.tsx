@@ -1,20 +1,87 @@
-import { useState } from 'react'
-import { Clock } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Clock, User, Armchair } from 'lucide-react'
 import type { DiningTable, TableStatus } from '../../api/tables'
 import { cn } from '../../lib/cn'
+
+/**
+ * Tạo mã bàn ngắn từ tên khu vực + số bàn.
+ * Ví dụ: ("Tầng 1", "3") → "T1-3" | ("Sân Vườn", "2") → "SV-2" | ("VIP", "1") → "VIP-1"
+ */
+function shortTableCode(sectionName: string | null, tableNumber: string): string {
+  const num = tableNumber.replace(/\D/g, '') // Chỉ lấy chữ số
+  if (!sectionName) return tableNumber
+
+  const s = sectionName.trim()
+
+  // Map cứng các tên khu vực phổ biến → prefix
+  const rules: Array<[RegExp, string | ((m: string) => string | undefined)]> = [
+    [/tầng\s*1/i, 'T1'],
+    [/tầng\s*2/i, 'T2'],
+    [/tầng\s*3/i, 'T3'],
+    [/tầng\s*4/i, 'T4'],
+    [/tầng\s*(\d+)/i, (m: string) => `T${m.match(/\d+/)?.[0]}`],
+    [/sân\s*vườn/i, 'SV'],
+    [/sân\s*thượng/i, 'ST'],
+    [/ngoài\s*trời/i, 'NT'],
+    [/vip/i, 'VIP'],
+    [/phòng\s*riêng/i, 'PR'],
+    [/phòng\s*(\d+)/i, (m: string) => `P${m.match(/\d+/)?.[0]}`],
+    [/hội\s*trường/i, 'HT'],
+    [/bar/i, 'BAR'],
+    [/tầng\s*trệt/i, 'TT'],
+    [/tầng\s*lửng/i, 'TL'],
+  ]
+
+  for (const [pattern, prefix] of rules) {
+    if (pattern.test(s)) {
+      const p = typeof prefix === 'function' ? (prefix(s) ?? '') : prefix
+      return num ? `${p}-${num}` : p
+    }
+  }
+
+  // Fallback: lấy chữ cái đầu của mỗi từ (bỏ dấu)
+  const initials = s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
+    .split(/\s+/)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+  return num ? `${initials}-${num}` : initials
+}
 
 interface CardMeta {
   label: string
   card: string
-  accent: string
+  badge: string
 }
 
 const statusMeta: Record<TableStatus, CardMeta> = {
-  AVAILABLE: { label: 'Trống', card: 'bg-white/80 backdrop-blur border-slate-200/60 hover:border-slate-300 hover:shadow-lg active:scale-[0.97] hover:-translate-y-0.5 transition-all duration-300', accent: 'text-slate-500' },
-  SERVING: { label: 'Đang phục vụ', card: 'bg-emerald-50/90 backdrop-blur border-emerald-200 hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.97] hover:-translate-y-0.5 transition-all duration-300', accent: 'text-emerald-700' },
-  RESERVED: { label: 'Giữ chỗ', card: 'bg-indigo-50/90 backdrop-blur border-indigo-200 hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.97] hover:-translate-y-0.5 transition-all duration-300', accent: 'text-indigo-700' },
-  WAIT_PAYMENT: { label: 'Chờ thanh toán', card: 'bg-orange-50/90 backdrop-blur border-orange-200 hover:border-orange-400 hover:shadow-lg hover:shadow-orange-500/20 active:scale-[0.97] hover:-translate-y-0.5 transition-all duration-300', accent: 'text-orange-700' },
-  DISABLE: { label: 'Ngưng', card: 'bg-slate-100/50 border-slate-200 opacity-60', accent: 'text-slate-400' },
+  AVAILABLE: {
+    label: 'TRỐNG',
+    card: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 active:scale-[0.98]',
+    badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  },
+  SERVING: {
+    label: 'ĐANG PHỤC VỤ',
+    card: 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 hover:border-emerald-500 active:scale-[0.98]',
+    badge: 'bg-emerald-600 text-white',
+  },
+  RESERVED: {
+    label: 'ĐẶT TRƯỚC',
+    card: 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 active:scale-[0.98]',
+    badge: 'bg-amber-600 text-white',
+  },
+  WAIT_PAYMENT: {
+    label: 'CHỜ THANH TOÁN',
+    card: 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-300 dark:border-purple-800 active:scale-[0.98]',
+    badge: 'bg-purple-600 text-white',
+  },
+  DISABLE: {
+    label: 'NGƯNG DÙNG',
+    card: 'bg-slate-100 dark:bg-slate-900 border-slate-200 opacity-50 cursor-not-allowed',
+    badge: 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500',
+  },
 }
 
 interface Group {
@@ -23,7 +90,6 @@ interface Group {
   tables: DiningTable[]
 }
 
-// Gom ban theo khu vuc (section), giu thu tu xuat hien.
 function groupBySection(tables: DiningTable[]): Group[] {
   const groups: Group[] = []
   const index = new Map<string, Group>()
@@ -51,91 +117,132 @@ export default function TableGridView({
 }) {
   const [active, setActive] = useState<string>('all')
 
+  const groups = useMemo(() => groupBySection(tables), [tables])
+
   if (tables.length === 0) {
-    return <p className="text-sm text-slate-400">Chưa có bàn nào.</p>
+    return <p className="text-sm text-slate-400 text-center py-8">Chưa có bàn nào trong hệ thống.</p>
   }
-  const groups = groupBySection(tables)
-  const shown = active === 'all' ? tables : (groups.find((g) => g.key === active)?.tables ?? tables)
+
+  const displayedGroups = active === 'all' ? groups : groups.filter((g) => g.key === active)
 
   return (
-    <div>
-      <div className="sticky top-[49px] md:top-[45px] z-30 -mx-3 mb-6 flex gap-2.5 overflow-x-auto bg-white/95 px-3 py-3.5 backdrop-blur-xl shadow-sm border-b border-slate-200/50 md:-mx-4 md:px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <Tab active={active === 'all'} onClick={() => setActive('all')}>
-          Tất cả
-        </Tab>
+    <div className="flex flex-col gap-5 w-full">
+      {/* Section Filter Pills - Horizontal Scrollable */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-200/60 dark:border-slate-800">
+        <button
+          onClick={() => setActive('all')}
+          className={cn(
+            'shrink-0 h-9 px-4 rounded-full text-xs font-semibold transition-all select-none cursor-pointer',
+            active === 'all'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100',
+          )}
+        >
+          Tất cả ({tables.length})
+        </button>
         {groups.map((g) => (
-          <Tab key={g.key} active={active === g.key} onClick={() => setActive(g.key)}>
+          <button
+            key={g.key}
+            onClick={() => setActive(g.key)}
+            className={cn(
+              'shrink-0 h-9 px-4 rounded-full text-xs font-semibold transition-all select-none cursor-pointer',
+              active === g.key
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100',
+            )}
+          >
             {g.name} ({g.tables.length})
-          </Tab>
+          </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {shown.map((t) => {
-          const meta = statusMeta[t.status]
-          const disabled = t.status === 'DISABLE'
-          const isPaid = t.status === 'SERVING' && t.active_order_id == null
-          return (
-            <button
-              key={t.id}
-              disabled={disabled}
-              onClick={() => onSelect(t)}
-              className={cn(
-                'flex min-h-[110px] flex-col items-start rounded-2xl border p-4 text-left shadow-sm disabled:cursor-not-allowed',
-                isPaid ? 'bg-teal-50/90 backdrop-blur border-teal-200 hover:border-teal-400 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.97] hover:-translate-y-0.5 transition-all duration-300' : meta.card,
-              )}
-            >
-              <span className="text-lg font-semibold text-slate-900">
-                {(t.table_name || t.table_number).replace(/^Bàn\s*/i, '')}
-              </span>
-              <span className={cn('mt-0.5 text-xs font-medium', isPaid ? 'text-teal-700' : meta.accent)}>
-                {isPaid ? 'Đã thanh toán' : meta.label}
-              </span>
-              <div className="mt-auto pt-2 flex items-center justify-between w-full text-xs text-slate-500">
-                <span>
-                  {t.active_order_amount > 0
-                    ? `${Number(t.active_order_amount).toLocaleString('vi-VN')}đ`
-                    : isPaid
-                    ? 'Khách đang ngồi'
-                    : `${t.capacity} chỗ`}
-                </span>
-                {t.upcoming_reservation && (
-                  <button 
-                    className="flex items-center gap-1 font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md transition-colors" 
-                    title={`Nhận khách đặt lúc ${t.upcoming_reservation.reservation_time?.slice(0, 5)}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (onCheckin) onCheckin(t.upcoming_reservation!.id)
-                    }}
-                  >
-                    <Clock size={12} />
-                    {t.upcoming_reservation.reservation_time?.slice(0, 5)}
-                  </button>
-                )}
-              </div>
-              {t.active_waiter_name && (
-                <span className="truncate text-[11px] text-slate-400">{t.active_waiter_name}</span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+      {/* Grouped Sections List matching User UI Design */}
+      {displayedGroups.map((g) => (
+        <div key={g.key} className="space-y-3">
+          {/* Section Header with Green Vertical Accent */}
+          <div className="flex items-center gap-2">
+            <span className="h-5 w-1 rounded-full bg-emerald-600" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              {g.name} <span className="text-xs font-normal text-slate-400">({g.tables.length} bàn)</span>
+            </h2>
+          </div>
 
-function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'shrink-0 rounded-full px-5 py-2 text-sm font-semibold transition-all duration-300 ease-out active:scale-95',
-        active
-          ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/20'
-          : 'bg-white/80 text-slate-600 hover:bg-slate-100 hover:text-slate-900 shadow-sm border border-slate-200/60 hover:border-slate-300/80',
-      )}
-    >
-      {children}
-    </button>
+          {/* Tables Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {g.tables.map((t) => {
+              const meta = statusMeta[t.status]
+              const disabled = t.status === 'DISABLE'
+              const isPaid = t.status === 'SERVING' && t.active_order_id == null
+
+              // Tạo mã bàn ngắn: T1-3, SV-2, VIP-1 ... từ section_name + table_number
+              const tableName = shortTableCode(g.name, t.table_number)
+
+              return (
+                <button
+                  key={t.id}
+                  disabled={disabled}
+                  onClick={() => onSelect(t)}
+                  className={cn(
+                    'flex flex-col justify-between min-h-[110px] p-3.5 rounded-2xl border text-left transition-all duration-150 select-none cursor-pointer shadow-xs',
+                    meta.card,
+                  )}
+                >
+                  {/* Top Badge */}
+                  <div className="flex items-center justify-between w-full">
+                    <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider', meta.badge)}>
+                      {isPaid ? 'ĐÃ XONG' : meta.label}
+                    </span>
+                  </div>
+
+                  {/* Armchair Icon & Table Name + Capacity */}
+                  <div className="my-2 flex items-center gap-2">
+                    <Armchair size={18} className="text-slate-700 dark:text-slate-300 shrink-0" />
+                    <div className="flex items-baseline gap-1 truncate">
+                      <span className="text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+                        {tableName}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium">({t.capacity} chỗ)</span>
+                    </div>
+                  </div>
+
+                  {/* Subtitle / Order Amount */}
+                  <div className="flex items-center justify-between w-full text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-slate-600 dark:text-slate-400">
+                      {t.active_order_amount > 0
+                        ? `${Number(t.active_order_amount).toLocaleString('vi-VN')}đ`
+                        : t.status === 'AVAILABLE'
+                        ? 'Trống'
+                        : isPaid
+                        ? 'Khách đang ngồi'
+                        : meta.label}
+                    </span>
+
+                    {t.upcoming_reservation && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (onCheckin) onCheckin(t.upcoming_reservation!.id)
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-300 px-1.5 py-0.5 rounded"
+                      >
+                        <Clock size={10} />
+                        {t.upcoming_reservation.reservation_time?.slice(0, 5)}
+                      </span>
+                    )}
+                  </div>
+
+                  {t.active_waiter_name && (
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                      <User size={10} />
+                      <span className="truncate">{t.active_waiter_name}</span>
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

@@ -1,23 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ReceiptText, RefreshCw, Clock, DoorOpen, X, QrCode, Camera, FileText } from 'lucide-react'
-import { BrowserMultiFormatReader } from '@zxing/library'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { ArrowLeft, RefreshCw, Zap, Grid3x3, Utensils, ShoppingCart } from 'lucide-react'
 import { tablesApi, type DiningTable } from '../api/tables'
 import { menuApi, type MenuItem, type Category } from '../api/menu'
-import { ordersApi, cancelApi, type Order, type KitchenStatus, type OrderItem, type CancelReason } from '../api/orders'
-import { reservationsApi } from '../api/reservations'
-import { checkoutApi, type VatInfo } from '../api/checkout'
+import { ordersApi, cancelApi, type Order, type OrderItem, type CancelReason } from '../api/orders'
 
 import { errMsg } from '../lib/errMsg'
-import { useRealtime } from '../lib/useRealtime'
-import QRCode from 'qrcode'
-import { Button, ErrorText, Modal, Input } from '../components/ui'
+import { Button, ErrorText, Modal, Input, Badge } from '../components/ui'
 import TableGridView from '../components/orders/TableGridView'
 import MenuPanel from '../components/orders/MenuPanel'
 import OrderPanel, { type CartLine } from '../components/orders/OrderPanel'
 import ItemNoteModal from '../components/orders/ItemNoteModal'
 import CancelReasonModal from '../components/orders/CancelReasonModal'
+import { cn } from '../lib/cn'
 
-const POLL_MS = 15000
+type MobileTab = 'tables' | 'menu' | 'cart'
 
 export default function OrdersPage() {
   const [tables, setTables] = useState<DiningTable[]>([])
@@ -28,27 +24,15 @@ export default function OrdersPage() {
   const [cart, setCart] = useState<Record<number, CartLine>>({})
   const [noteFor, setNoteFor] = useState<number | null>(null)
   const [cancelItem, setCancelItem] = useState<OrderItem | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedEmptyTable, setSelectedEmptyTable] = useState<DiningTable | null>(null)
   const [walkinGuests, setWalkinGuests] = useState('1')
-  const [scanModalOpen, setScanModalOpen] = useState(false)
-  const [showQrModal, setShowQrModal] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState('')
-  const [scanToken, setScanToken] = useState('')
-  const [scanRes, setScanRes] = useState('')
-  const [cameraOn, setCameraOn] = useState(false)
-  const [camError, setCamError] = useState('')
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const lastScanRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  const [intentMethod, setIntentMethod] = useState<string | null>(null)
-  const [vatModalOpen, setVatModalOpen] = useState(false)
-  const [vatInfo, setVatInfo] = useState<VatInfo>({ companyName: '', taxCode: '', address: '', email: '' })
-  const [vatSaved, setVatSaved] = useState(false)
-  const pollRef = useRef<number | null>(null)
 
-  // Tai du lieu nen (menu + category) 1 lan.
+  // Mobile Handheld Tab state for Waiter
+  const [mobileTab, setMobileTab] = useState<MobileTab>('tables')
+
+  // Auto Load Data
   useEffect(() => {
     Promise.all([menuApi.listItems(), menuApi.listCategories()])
       .then(([its, cats]) => {
@@ -58,229 +42,74 @@ export default function OrdersPage() {
       .catch((e) => setErr(errMsg(e)))
   }, [])
 
-  function loadTables() {
+  const loadTables = useCallback(() => {
     tablesApi
       .list()
       .then(setTables)
       .catch((e) => setErr(errMsg(e)))
-  }
-  useEffect(loadTables, [])
+  }, [])
 
-  // Doi bàn -> reset trang thai + tai don active.
+  useEffect(() => {
+    loadTables()
+  }, [loadTables])
+
+  // Đổi bàn -> switch mobile view sang menu
   useEffect(() => {
     setCart({})
     if (!table) {
       setOrder(null)
+      setMobileTab('tables')
       return
     }
+    setMobileTab('menu')
     ordersApi
       .getActiveForTable(table.id)
       .then(setOrder)
       .catch(() => setOrder(null))
-      
-    if (table.status === 'WAIT_PAYMENT') {
-      checkoutApi.getIntent(table.id)
-        .then(res => setIntentMethod(res.intent?.method || null))
-        .catch(() => setIntentMethod(null))
-    } else {
-      setIntentMethod(null)
-    }
-
-    // Khoi phuc thong tin khach da quet (neu co)
-    checkoutApi.getTableVoucher(table.id)
-      .then(res => {
-        if (res.customerId) {
-          setScanRes(`Đã thêm: ${res.customerName || res.customerId} ${res.voucherCode ? '+ Voucher' : ''}`)
-        } else {
-          setScanRes('')
-        }
-      })
-      .catch(() => setScanRes(''))
-
-    checkoutApi.getTableVat(table.id)
-      .then(v => {
-        if (v && v.email) {
-          setVatInfo(v)
-          setVatSaved(true)
-        } else {
-          setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
-          setVatSaved(false)
-        }
-      })
-      .catch(() => { setVatInfo({ companyName: '', taxCode: '', address: '', email: '' }); setVatSaved(false) })
   }, [table])
 
-  // Polling trang thai bep khi dang o màn gọi món.
+  // Cart Stats
+  const cartItemCount = useMemo(() => {
+    return Object.values(cart).reduce((acc, l) => acc + l.quantity, 0)
+  }, [cart])
+
+  // Keyboard Listener
   useEffect(() => {
-    if (!table) return
-    pollRef.current = window.setInterval(() => {
-      ordersApi
-        .getActiveForTable(table.id)
-        .then(setOrder)
-        .catch(() => {})
-    }, POLL_MS)
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current)
-    }
-  }, [table])
-
-  useRealtime('/internal/orders/kitchen/stream', () => { refreshOrder(); loadTables() })
-
-  async function handleScan(tokenStr: string) {
-    if (!tokenStr.trim() || !table) return
-    setBusy(true)
-    setScanRes('')
-    try {
-      const res = await checkoutApi.scan(table.id, tokenStr.trim())
-      setScanRes(`Đã thêm: ${res.customerName || res.customerId} ${res.voucherApplied ? `+ Voucher` : ''}`)
-      setScanToken('')
-      setCameraOn(false) // tắt cam sau khi quét thành công
-    } catch (e: any) {
-      setScanRes(e.response?.data?.message || e.message || 'Lỗi quét mã')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!cameraOn || !scanModalOpen) return
-    let cancelled = false
-    const reader = new BrowserMultiFormatReader()
-
-    async function start() {
-      setCamError('')
-      try {
-        if (!videoRef.current) return
-        
-        await reader.decodeFromConstraints(
-          { video: { facingMode: 'environment' } },
-          videoRef.current,
-          (_result, _error) => {
-            if (cancelled) return
-            if (_result) {
-              const value = _result.getText().trim()
-              const now = Date.now()
-              if (!value || (value === lastScanRef.current.code && now - lastScanRef.current.at < 3000)) return
-              lastScanRef.current = { code: value, at: now }
-              void handleScan(value)
-            }
-          }
-        )
-      } catch (e: any) {
-        if (!cancelled) {
-          setCamError('Không truy cập được camera. (' + e.message + ')')
-          setCameraOn(false)
-        }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && table) {
+        setTable(null)
       }
     }
-    
-    start()
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [table])
 
-    return () => {
-      cancelled = true
-      reader.reset()
-    }
-  }, [cameraOn, scanModalOpen])
-
-  async function refreshOrder() {
-    if (!table) return
-    try {
-      setOrder(await ordersApi.getActiveForTable(table.id))
-    } catch {
-      /* giu don cu */
-    }
-  }
-
-  const inc = (id: number) =>
-    setCart((c) => ({ ...c, [id]: { ...c[id], quantity: (c[id]?.quantity ?? 0) + 1 } }))
-  const dec = (id: number) =>
-    setCart((c) => {
-      const n = (c[id]?.quantity ?? 0) - 1
-      const next = { ...c }
-      if (n <= 0) delete next[id]
-      else next[id] = { ...next[id], quantity: n }
-      return next
-    })
-  const setNote = (id: number, note: string) =>
-    setCart((c) => ({ ...c, [id]: { ...c[id], note: note || undefined } }))
-
-  async function submit() {
-    if (!table) return
-    const entries = Object.entries(cart).map(([id, line]) => ({
-      menu_item_id: Number(id),
-      quantity: line.quantity,
-      note: line.note,
-    }))
-    if (entries.length === 0) return
-    setBusy(true)
+  // Handlers
+  const handleSelectTable = (t: DiningTable) => {
     setErr('')
-    try {
-      if (order) await ordersApi.addItems(order.order_id, entries)
-      else await ordersApi.create({ table_id: table.id, order_items: entries })
-      setCart({})
-      await refreshOrder()
-    } catch (e) {
-      setErr(errMsg(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function setItemStatus(itemId: number, status: KitchenStatus) {
-    setBusy(true)
-    setErr('')
-    try {
-      await ordersApi.updateItemKitchenStatus(itemId, status)
-      await refreshOrder()
-    } catch (e) {
-      setErr(errMsg(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function requestCancel(reason: CancelReason, note: string) {
-    if (!order || !cancelItem) return
-    setBusy(true)
-    setErr('')
-    try {
-      const res = await cancelApi.request(order.order_id, cancelItem.order_item_id, {
-        reason_code: reason,
-        reason_note: note || undefined,
-      })
-      await refreshOrder()
-      alert(
-        res.is_mistake
-          ? 'Món đã nấu — đã đánh dấu nhầm lẫn, thu ngân sẽ bỏ khỏi bill khi thanh toán.'
-          : 'Đã gửi yêu cầu hủy xuống bếp, chờ bếp duyệt.',
-      )
-    } catch (e) {
-      setErr(errMsg(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const cartCount = Object.values(cart).reduce((s, l) => s + l.quantity, 0)
-  const noteItemName = noteFor ? (items.find((i) => i.menu_item_id === noteFor)?.name ?? '') : ''
-
-  function handleSelectTable(t: DiningTable) {
-    if (t.status === 'AVAILABLE' || t.status === 'RESERVED') {
-      setWalkinGuests(String(t.capacity))
+    if (t.status === 'AVAILABLE') {
       setSelectedEmptyTable(t)
+      setWalkinGuests('1')
     } else {
       setTable(t)
     }
   }
 
-  async function openEmptyTable() {
+  const handleCreateWalkinOrder = async () => {
     if (!selectedEmptyTable) return
     setBusy(true)
     setErr('')
     try {
-      await ordersApi.create({ table_id: selectedEmptyTable.id, guest_count: Number(walkinGuests) })
-      setTable(selectedEmptyTable)
+      const g = Math.max(1, parseInt(walkinGuests, 10) || 1)
+      const res = await ordersApi.create({
+        table_id: selectedEmptyTable.id,
+        guest_count: g,
+      })
       setSelectedEmptyTable(null)
+      loadTables()
+      const updated = (await tablesApi.list()).find((x) => x.id === selectedEmptyTable.id)
+      setTable(updated || selectedEmptyTable)
+      setOrder(res)
     } catch (e) {
       setErr(errMsg(e))
     } finally {
@@ -288,15 +117,70 @@ export default function OrdersPage() {
     }
   }
 
-  async function cancelEmptyTable() {
+  const handleAddToCart = (item: MenuItem) => {
     if (!table) return
-    if (!confirm('Bạn có chắc chắn muốn hủy bàn này? Bàn sẽ trở về trạng thái trống.')) return
+    setCart((prev) => {
+      const cur = prev[item.menu_item_id]?.quantity || 0
+      return {
+        ...prev,
+        [item.menu_item_id]: {
+          quantity: cur + 1,
+          note: prev[item.menu_item_id]?.note,
+        },
+      }
+    })
+  }
+
+  const handleIncCart = (id: number) => {
+    setCart((prev) => {
+      const cur = prev[id]?.quantity || 0
+      return { ...prev, [id]: { ...prev[id], quantity: cur + 1 } }
+    })
+  }
+
+  const handleDecCart = (id: number) => {
+    setCart((prev) => {
+      const cur = prev[id]?.quantity || 0
+      if (cur <= 1) {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      }
+      return { ...prev, [id]: { ...prev[id], quantity: cur - 1 } }
+    })
+  }
+
+  const handleSaveNote = (note: string) => {
+    if (noteFor == null) return
+    setCart((prev) => {
+      if (!prev[noteFor]) return prev
+      return { ...prev, [noteFor]: { ...prev[noteFor], note } }
+    })
+    setNoteFor(null)
+  }
+
+  const handleSubmitCart = async () => {
+    if (!table) return
+    const lines = Object.entries(cart).map(([id, l]) => ({
+      menu_item_id: Number(id),
+      quantity: l.quantity,
+      note: l.note,
+    }))
+    if (lines.length === 0) return
+
     setBusy(true)
     setErr('')
     try {
-      await tablesApi.changeStatus(table.id, 'AVAILABLE')
-      setTable(null)
+      if (!order) {
+        const res = await ordersApi.create({ table_id: table.id, order_items: lines })
+        setOrder(res)
+      } else {
+        const res = await ordersApi.addItems(order.order_id, lines)
+        setOrder(res)
+      }
+      setCart({})
       loadTables()
+      setMobileTab('menu')
     } catch (e) {
       setErr(errMsg(e))
     } finally {
@@ -304,378 +188,243 @@ export default function OrdersPage() {
     }
   }
 
-  // ----- Màn chọn bàn -----
-  if (!table) {
-    return (
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-slate-900">Chọn bàn</h1>
-          <Button variant="secondary" onClick={loadTables}>
-            <RefreshCw size={15} /> Làm mới
-          </Button>
-        </div>
-        <ErrorText>{err}</ErrorText>
-        <TableGridView 
-          tables={tables} 
-          onSelect={handleSelectTable} 
-          onCheckin={async (id) => {
-            if (!confirm('Bạn muốn nhận khách cho phiếu đặt này?')) return
-            try {
-              setErr('')
-              await reservationsApi.checkin(id)
-              loadTables()
-            } catch (e) {
-              setErr(errMsg(e))
-            }
-          }}
-        />
-
-        {selectedEmptyTable && (
-          <Modal open title={`Mở bàn ${selectedEmptyTable.table_number}`} onClose={() => setSelectedEmptyTable(null)}>
-            <div className="flex flex-col gap-5">
-              {selectedEmptyTable.upcoming_reservation && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <div className="mb-2 text-xs font-semibold text-blue-800">Khách đặt trước</div>
-                  <div className="flex items-center justify-between gap-2 rounded-md bg-white p-2 shadow-sm">
-                    <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                      <Clock size={14} className="text-blue-500" />
-                      {selectedEmptyTable.upcoming_reservation.reservation_time?.slice(0, 5)} · {selectedEmptyTable.upcoming_reservation.customer_name}
-                    </span>
-                    <Button 
-                      className="px-3 py-1.5 text-xs" 
-                      onClick={async () => {
-                        setBusy(true)
-                        try {
-                          await reservationsApi.checkin(selectedEmptyTable.upcoming_reservation!.id)
-                          setTable(selectedEmptyTable)
-                          setSelectedEmptyTable(null)
-                        } catch (e) {
-                          setErr(errMsg(e))
-                        } finally {
-                          setBusy(false)
-                        }
-                      }}
-                      disabled={busy}
-                    >
-                      Nhận khách
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3 rounded-lg border border-green-200 bg-green-50/50 p-3">
-                <div className="text-xs font-semibold text-green-800">Khách vãng lai</div>
-                <Input 
-                  label="Số lượng khách" 
-                  type="number" 
-                  value={walkinGuests} 
-                  onChange={(e) => setWalkinGuests(e.target.value)} 
-                  autoFocus 
-                />
-                <Button 
-                  onClick={openEmptyTable} 
-                  disabled={busy || !walkinGuests} 
-                  className="w-full justify-center bg-green-600 hover:bg-green-700"
-                >
-                  <DoorOpen size={16} /> Mở bàn & Gọi món
-                </Button>
-              </div>
-            </div>
-          </Modal>
-        )}
-      </div>
-    )
+  const handleServeItem = async (itemId: number) => {
+    setBusy(true)
+    setErr('')
+    try {
+      await ordersApi.updateItemKitchenStatus(itemId, 'SERVED')
+      if (table) {
+        const updated = await ordersApi.getActiveForTable(table.id)
+        setOrder(updated)
+      }
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
-  // ----- Màn gọi món -----
-  const isTablePaid = table?.status === 'SERVING' && table.active_order_id == null
-  const panel = (
-    <OrderPanel
-      tableId={table?.id}
-      order={order}
-      isPaid={isTablePaid}
-      cart={cart}
-      items={items}
-      busy={busy}
-      onInc={inc}
-      onDec={dec}
-      onEditNote={setNoteFor}
-      onServe={(id) => setItemStatus(id, 'SERVED')}
-      onRequestCancel={setCancelItem}
-      onSubmit={submit}
-    />
-  )
+  const handleConfirmCancelItem = async (reason: CancelReason, notes?: string) => {
+    if (!cancelItem || !table || !order) return
+    setBusy(true)
+    setErr('')
+    try {
+      await cancelApi.request(order.order_id, cancelItem.order_item_id, {
+        reason_code: reason,
+        reason_note: notes,
+      })
+      const updated = await ordersApi.getActiveForTable(table.id)
+      setOrder(updated)
+      setCancelItem(null)
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const noteItemName = noteFor != null ? items.find((i) => i.menu_item_id === noteFor)?.name || '' : ''
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100vh-9rem)]">
-      <div className="sticky top-0 z-40 -mx-3 mb-2 flex items-center gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_4px_20px_rgb(0,0,0,0.02)] md:static md:mx-0 md:mb-5 md:bg-transparent md:px-0 md:py-3 md:border-none md:shadow-none">
-        <button
-          onClick={() => setTable(null)}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 active:scale-95 md:h-9 md:w-9"
-        >
-          <ArrowLeft size={16} className="md:w-[18px] md:h-[18px]" />
-        </button>
-
-        <div className="flex flex-1 flex-col overflow-hidden px-1">
-          <h1 className="truncate text-[15px] font-bold tracking-tight text-slate-900 md:text-xl">
-            {(table.table_name || table.table_number).replace(/^Bàn\s*/i, '')}
-          </h1>
-          {order && (
-            <span className="text-[12px] font-semibold text-indigo-600">
-              Đơn #{order.order_id}
-            </span>
+    <div className="flex flex-col h-[calc(100vh-4.5rem)] overflow-hidden">
+      {/* Top Mobile Bar - Header */}
+      <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          {table ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTable(null)}
+              leftIcon={<ArrowLeft size={15} />}
+              className="h-8 text-xs font-bold"
+            >
+              Đổi bàn
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1.5 font-bold text-sm text-slate-900 dark:text-slate-100">
+              <Zap size={18} className="text-emerald-600" />
+              <span>Phục Vụ Waiter POS</span>
+            </div>
           )}
-          {scanRes && !scanRes.startsWith('Lỗi') && (
-            <span className="text-[12px] font-semibold text-emerald-600">
-              {scanRes}
-            </span>
+
+          {table && (
+            <Badge variant="success" className="text-xs font-extrabold px-2.5 py-0.5">
+              {table.table_name || `Bàn ${table.table_number}`}
+            </Badge>
           )}
         </div>
 
-        {order?.items && order.items.some(it => it.kitchen_status !== 'CANCELLED') && (
-          <div className="flex shrink-0 gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setVatModalOpen(true)}
-              className={`flex items-center gap-1 sm:gap-1.5 rounded-full px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors active:scale-95 ${
-                vatSaved
-                  ? 'bg-green-50 border border-green-300 text-green-700'
-                  : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <FileText size={14} className="sm:w-[15px] sm:h-[15px]" />
-              <span className="hidden sm:inline">HĐ VAT</span>
-              <span className="sm:hidden">VAT</span>
-            </button>
-            <button
-              onClick={() => { setScanToken(''); setScanRes(''); setCameraOn(false); setScanModalOpen(true); }}
-              className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-slate-50 border border-slate-200 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:scale-95"
-            >
-              <QrCode size={14} className="sm:w-[15px] sm:h-[15px]" />
-              <span className="hidden sm:inline">Quét mã</span>
-              <span className="sm:hidden">Quét</span>
-            </button>
-            {table.status === 'WAIT_PAYMENT' && intentMethod === 'TRANSFER' && (
-              <button 
-                onClick={async () => {
-                  setBusy(true)
-                  try {
-                    const res = await checkoutApi.getIntent(table.id)
-                    if (res.intent) {
-                       const qrString = res.intent.qrCode || res.intent.checkoutUrl
-                       if (qrString) {
-                         const url = await QRCode.toDataURL(qrString, { width: 300, margin: 2 })
-                         setQrDataUrl(url)
-                         setShowQrModal(true)
-                       }
-                    } else {
-                       alert('Khách đã thanh toán hoặc đã hủy giao dịch.')
-                       setTable(null)
-                       loadTables()
-                    }
-                  } catch(e) {
-                    alert(errMsg(e))
-                  } finally {
-                    setBusy(false)
-                  }
-                }}
-                className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-blue-50 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 active:scale-95"
-              >
-                <QrCode size={14} className="sm:w-[15px] sm:h-[15px]" />
-                <span className="hidden sm:inline">QR Thanh toán</span>
-                <span className="sm:hidden">Mã QR</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {(!order?.items || order.items.every(it => it.kitchen_status === 'CANCELLED')) && (
-          <button 
-            disabled={busy}
-            onClick={cancelEmptyTable}
-            className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 active:scale-95 disabled:opacity-50"
-          >
-            Hủy bàn
-          </button>
-        )}
+        <Button variant="ghost" size="sm" onClick={loadTables} className="h-8 w-8 p-0">
+          <RefreshCw size={15} />
+        </Button>
       </div>
+
       <ErrorText>{err}</ErrorText>
 
-      <div className="flex min-h-0 flex-1 gap-6">
-        {/* Menu */}
-        <div className="min-h-0 flex-1 overflow-y-auto pb-24 md:pb-0">
-          <MenuPanel items={items} categories={categories} onAdd={(it) => inc(it.menu_item_id)} />
-        </div>
-        {/* Panel don co dinh (tablet tro len) */}
-        <div className="hidden w-80 shrink-0 md:block">{panel}</div>
-      </div>
-
-      {/* Thanh duoi mo bottom-sheet (dien thoai) */}
-      <div className="fixed inset-x-0 bottom-14 z-40 flex items-center justify-center px-4 pb-2 md:hidden">
-        <button 
-          className="group relative flex w-[90%] max-w-sm items-center justify-between overflow-hidden rounded-[2rem] bg-slate-900 px-5 py-3.5 shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-all duration-300 active:scale-95" 
-          onClick={() => setSheetOpen(true)}
+      {/* Mobile Tab Switcher Bar for Waiter (Visible on mobile/tablet < lg) */}
+      <div className="lg:hidden flex items-center justify-around bg-slate-100 dark:bg-slate-900 p-1 rounded-xl mb-3 border border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setMobileTab('tables')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer',
+            mobileTab === 'tables'
+              ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300',
+          )}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
-          <div className="relative flex items-center gap-3 text-white">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 backdrop-blur-md">
-              <ReceiptText size={16} />
-            </div>
-            <span className="text-[15px] font-semibold tracking-wide">Xem đơn</span>
-          </div>
-          {cartCount > 0 && (
-            <div className="relative flex items-center justify-center rounded-full bg-indigo-500 px-3 py-1 text-[13px] font-bold text-white shadow-inner">
-              {cartCount} món mới
-            </div>
+          <Grid3x3 size={15} />
+          <span>Sơ đồ bàn</span>
+        </button>
+
+        <button
+          disabled={!table}
+          onClick={() => setMobileTab('menu')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+            mobileTab === 'menu'
+              ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300',
+          )}
+        >
+          <Utensils size={15} />
+          <span>Thực đơn</span>
+        </button>
+
+        <button
+          disabled={!table}
+          onClick={() => setMobileTab('cart')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer relative disabled:opacity-40 disabled:cursor-not-allowed',
+            mobileTab === 'cart'
+              ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300',
+          )}
+        >
+          <ShoppingCart size={15} />
+          <span>Giỏ hàng</span>
+          {cartItemCount > 0 && (
+            <span className="h-4 w-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-extrabold">
+              {cartItemCount}
+            </span>
           )}
         </button>
       </div>
 
-      {sheetOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end md:hidden">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300"
-            onClick={() => setSheetOpen(false)}
-          ></div>
-          
-          {/* Sheet */}
-          <div className="relative z-10 flex flex-col rounded-t-[1.75rem] bg-white pb-safe shadow-2xl animate-in slide-in-from-bottom-full duration-300">
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-5">
-              <h3 className="text-[17px] font-bold text-slate-900">Đơn hiện tại</h3>
-              <button 
-                onClick={() => setSheetOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="h-[70vh] overflow-y-auto p-4 pt-2 pb-8">{panel}</div>
+      {/* View Switching (Responsive Desktop 3-Cols / Mobile Single View Tab) */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {!table || mobileTab === 'tables' ? (
+          <div className="h-full overflow-y-auto pr-0.5">
+            <TableGridView tables={tables} onSelect={handleSelectTable} />
           </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full min-h-0 overflow-hidden">
+            {/* Menu View (Desktop Always / Mobile when tab == 'menu') */}
+            <div
+              className={cn(
+                'lg:col-span-7 flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 shadow-xs overflow-hidden',
+                mobileTab !== 'menu' && 'hidden lg:flex',
+              )}
+            >
+              <div className="flex-1 overflow-y-auto no-scrollbar">
+                <MenuPanel items={items} categories={categories} onAdd={handleAddToCart} />
+              </div>
+            </div>
+
+            {/* Cart & Order View (Desktop Always / Mobile when tab == 'cart') */}
+            <div
+              className={cn(
+                'lg:col-span-5 flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 shadow-xs overflow-hidden',
+                mobileTab !== 'cart' && 'hidden lg:flex',
+              )}
+            >
+              <OrderPanel
+                tableId={table.id}
+                order={order}
+                isPaid={table.status === 'SERVING' && order == null}
+                cart={cart}
+                items={items}
+                busy={busy}
+                onInc={handleIncCart}
+                onDec={handleDecCart}
+                onEditNote={(id) => setNoteFor(id)}
+                onServe={handleServeItem}
+                onRequestCancel={(item) => setCancelItem(item)}
+                onSubmit={handleSubmitCart}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Bottom Cart Bar for Handheld Waiter (Mobile only) */}
+      {table && cartItemCount > 0 && mobileTab === 'menu' && (
+        <div className="lg:hidden fixed bottom-3 left-3 right-3 z-40 bg-emerald-600 text-white p-3 rounded-2xl shadow-xl flex items-center justify-between animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center font-extrabold text-sm">
+              {cartItemCount}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold">Đã chọn {cartItemCount} món</span>
+              <span className="text-[10px] text-emerald-100 font-medium">Chạm để xem chi tiết & gửi bếp</span>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setMobileTab('cart')}
+            className="bg-white text-emerald-700 font-extrabold text-xs h-9 px-4 rounded-xl shadow-xs"
+          >
+            Xem giỏ hàng
+          </Button>
         </div>
       )}
 
-      <ItemNoteModal
-        open={noteFor !== null}
-        itemName={noteItemName}
-        initialNote={noteFor ? (cart[noteFor]?.note ?? '') : ''}
-        onClose={() => setNoteFor(null)}
-        onSave={(note) => noteFor && setNote(noteFor, note)}
-      />
-
-      <CancelReasonModal
-        open={cancelItem !== null}
-        itemName={cancelItem?.item_name ?? ''}
-        onClose={() => setCancelItem(null)}
-        onSubmit={requestCancel}
-      />
-
-      {scanModalOpen && (
-        <Modal open title="Quét mã khách" onClose={() => { setScanModalOpen(false); setCameraOn(false); }}>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Dán token QR"
-                value={scanToken}
-                onChange={(e) => setScanToken(e.target.value)}
-                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
-              />
-              <Button className="shrink-0" onClick={() => setCameraOn(!cameraOn)} variant={cameraOn ? "danger" : "secondary"}>
-                {cameraOn ? <X size={16} /> : <Camera size={16} />}
-              </Button>
-              <Button className="shrink-0" onClick={() => handleScan(scanToken)} disabled={busy || !scanToken.trim()}>
-                Quét
-              </Button>
-            </div>
-            {cameraOn && (
-              <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-black/90 p-3">
-                <div className="relative w-full max-w-sm">
-                  <video ref={videoRef} className="aspect-square w-full rounded-md object-cover" muted playsInline />
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <div className="h-3/5 w-3/5 rounded-lg border-2 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-300">Đưa mã QR khách hàng vào khung vuông</p>
-              </div>
-            )}
-            {camError && <ErrorText>{camError}</ErrorText>}
-            {scanRes && (
-              <div className={scanRes.startsWith('Lỗi') ? "text-red-600 font-medium text-sm" : "text-emerald-600 font-medium text-sm"}>
-                {scanRes}
-              </div>
-            )}
-          </div>
-        </Modal>
-      )}
-
-      {showQrModal && (
-        <Modal open title="Mã QR Thanh Toán" onClose={() => setShowQrModal(false)}>
-          <div className="flex flex-col items-center justify-center p-4">
-            <p className="mb-4 text-center text-sm text-slate-600">
-              Khách hàng có thể dùng App Ngân Hàng quét mã dưới đây để thanh toán:
-            </p>
-            {qrDataUrl && (
-              <img src={qrDataUrl} alt="QR Code" className="w-64 h-64 object-contain rounded-lg border shadow-sm" />
-            )}
-            <Button className="mt-6 w-full" onClick={() => setShowQrModal(false)}>
-              Đóng
+      {/* Modal Mở bàn cho khách vãng lai */}
+      <Modal
+        open={selectedEmptyTable != null}
+        title={`Mở bàn ${selectedEmptyTable?.table_name || selectedEmptyTable?.table_number}`}
+        onClose={() => setSelectedEmptyTable(null)}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setSelectedEmptyTable(null)}>
+              Hủy
             </Button>
-          </div>
-        </Modal>
+            <Button onClick={handleCreateWalkinOrder} loading={busy}>
+              Mở bàn & Bắt đầu order
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Số lượng khách vào"
+          type="number"
+          min={1}
+          max={50}
+          value={walkinGuests}
+          onChange={(e) => setWalkinGuests(e.target.value)}
+          autoFocus
+        />
+      </Modal>
+
+      {/* Modal Ghi chú món */}
+      {noteFor != null && (
+        <ItemNoteModal
+          open={true}
+          itemName={noteItemName}
+          initialNote={cart[noteFor]?.note || ''}
+          onSave={handleSaveNote}
+          onClose={() => setNoteFor(null)}
+        />
       )}
 
-      {vatModalOpen && (
-        <Modal open title="Thông tin xuất hóa đơn VAT" onClose={() => setVatModalOpen(false)}>
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (!table || !vatInfo.email.trim()) return
-              setBusy(true)
-              try {
-                await checkoutApi.saveTableVat(table.id, vatInfo)
-                setVatSaved(true)
-                setVatModalOpen(false)
-              } catch (ex) {
-                alert(errMsg(ex))
-              } finally {
-                setBusy(false)
-              }
-            }}
-          >
-            <Input label="Tên công ty" value={vatInfo.companyName} onChange={(e) => setVatInfo({ ...vatInfo, companyName: e.target.value })} />
-            <Input label="Mã số thuế" value={vatInfo.taxCode} onChange={(e) => setVatInfo({ ...vatInfo, taxCode: e.target.value })} />
-            <Input label="Địa chỉ" value={vatInfo.address} onChange={(e) => setVatInfo({ ...vatInfo, address: e.target.value })} />
-            <Input label="Email nhận hóa đơn *" type="email" required value={vatInfo.email} onChange={(e) => setVatInfo({ ...vatInfo, email: e.target.value })} />
-            <div className="flex gap-2 pt-2">
-              {vatSaved && (
-                <Button
-                  type="button"
-                  variant="danger"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (!table) return
-                    setBusy(true)
-                    try {
-                      await checkoutApi.saveTableVat(table.id, { companyName: '', taxCode: '', address: '', email: '' })
-                      setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
-                      setVatSaved(false)
-                      setVatModalOpen(false)
-                    } catch (ex) {
-                      alert(errMsg(ex))
-                    } finally {
-                      setBusy(false)
-                    }
-                  }}
-                >
-                  Xóa
-                </Button>
-              )}
-              <Button type="button" variant="secondary" onClick={() => setVatModalOpen(false)}>Hủy</Button>
-              <Button type="submit" disabled={busy || !vatInfo.email.trim()}>Lưu</Button>
-            </div>
-          </form>
-        </Modal>
+      {/* Modal Hủy món */}
+      {cancelItem != null && (
+        <CancelReasonModal
+          open={true}
+          itemName={cancelItem.item_name}
+          onClose={() => setCancelItem(null)}
+          onSubmit={handleConfirmCancelItem}
+        />
       )}
     </div>
   )

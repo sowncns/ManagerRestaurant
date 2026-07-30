@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   RefreshCw,
   Users,
@@ -14,19 +14,21 @@ import {
   CalendarClock,
   Trash2,
   ChevronDown,
+  CalendarCheck,
 } from 'lucide-react'
 import { tablesApi, type DiningTable, type Section, type TableStatus } from '../api/tables'
 import { reservationsApi, type ReservationAlert, type Reservation } from '../api/reservations'
 import { ordersApi } from '../api/orders'
 import { errMsg } from '../lib/errMsg'
-import { Button, Modal, Input, Select, ErrorText } from '../components/ui'
+import { Button, Modal, Input, Select, ErrorText, Badge } from '../components/ui'
+import { cn } from '../lib/cn'
 
 function todayStr() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const SLOT_MIN = 120 // 2 lich cung ban phai cach nhau >= 2h
+const SLOT_MIN = 120
 
 function toMin(t?: string | null) {
   if (!t) return 0
@@ -34,7 +36,6 @@ function toMin(t?: string | null) {
   return Number(h) * 60 + Number(m)
 }
 
-// Ban co bi trung khung gio (<2h) voi lich khac tren cung ban khong.
 function hasTimeConflict(
   reservations: Reservation[],
   tableId: number,
@@ -57,50 +58,49 @@ function hasTimeConflict(
 
 interface Meta {
   label: string
-  chip: string // mau pill nho
-  card: string // mau nen the ban
-  accent: string // mau chu so ban
+  chip: string
+  card: string
+  accent: string
 }
 
 const statusMeta: Record<TableStatus, Meta> = {
   AVAILABLE: {
     label: 'Trống',
-    chip: 'bg-slate-100 text-slate-600',
-    card: 'bg-white border-slate-200 hover:border-slate-300',
-    accent: 'text-slate-700',
+    chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    card: 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-500',
+    accent: 'text-slate-800 dark:text-slate-200',
   },
   SERVING: {
     label: 'Đang phục vụ',
-    chip: 'bg-green-100 text-green-700',
-    card: 'bg-green-50 border-green-300 hover:border-green-400',
-    accent: 'text-green-700',
+    chip: 'bg-emerald-600 text-white',
+    card: 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 hover:border-emerald-500',
+    accent: 'text-emerald-700 dark:text-emerald-400',
   },
   RESERVED: {
     label: 'Giữ chỗ',
-    chip: 'bg-blue-100 text-blue-700',
-    card: 'bg-blue-50 border-blue-300 hover:border-blue-400',
-    accent: 'text-blue-700',
+    chip: 'bg-sky-600 text-white',
+    card: 'bg-sky-50/70 dark:bg-sky-950/40 border-sky-300 dark:border-sky-800 hover:border-sky-500',
+    accent: 'text-sky-700 dark:text-sky-400',
   },
   WAIT_PAYMENT: {
     label: 'Chờ thanh toán',
-    chip: 'bg-amber-100 text-amber-700',
-    card: 'bg-amber-50 border-amber-300 hover:border-amber-400',
-    accent: 'text-amber-700',
+    chip: 'bg-amber-600 text-white',
+    card: 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 hover:border-amber-500',
+    accent: 'text-amber-700 dark:text-amber-400',
   },
-
   DISABLE: {
     label: 'Ngưng',
-    chip: 'bg-slate-100 text-slate-400',
-    card: 'bg-slate-50 border-slate-200 opacity-60',
+    chip: 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500',
+    card: 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 opacity-60 cursor-not-allowed',
     accent: 'text-slate-400',
   },
 }
 
 const CONFLICT_META: Meta = {
   label: 'Sắp tới giờ hẹn',
-  chip: 'bg-red-100 text-red-700',
-  card: 'bg-red-50 border-red-400 ring-2 ring-red-200 animate-pulse',
-  accent: 'text-red-700',
+  chip: 'bg-rose-600 text-white animate-pulse',
+  card: 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-400 ring-2 ring-rose-300 dark:ring-rose-900',
+  accent: 'text-rose-700 dark:text-rose-400',
 }
 
 export default function FloorMapPage() {
@@ -115,7 +115,7 @@ export default function FloorMapPage() {
   const [pendingExpanded, setPendingExpanded] = useState(true)
   const [activeSectionId, setActiveSectionId] = useState<number | 'none' | 'all'>('all')
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setErr('')
     try {
@@ -134,14 +134,15 @@ export default function FloorMapPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
   useEffect(() => {
     void load()
     const timer = setInterval(() => void load(), 60000)
     return () => clearInterval(timer)
-  }, [])
+  }, [load])
 
-  async function switchTable(reservationId: number, tableId: number) {
+  const switchTable = async (reservationId: number, tableId: number) => {
     try {
       await reservationsApi.assignTable(reservationId, tableId)
       await load()
@@ -150,16 +151,7 @@ export default function FloorMapPage() {
     }
   }
 
-  async function setTableStatus(t: DiningTable, status: TableStatus) {
-    try {
-      await tablesApi.changeStatus(t.id, status)
-      await load()
-    } catch (e) {
-      alert(errMsg(e))
-    }
-  }
-
-  async function confirmReservation(r: Reservation, tableId: number) {
+  const confirmReservation = async (r: Reservation, tableId: number) => {
     try {
       await reservationsApi.assignTable(r.id, tableId)
       await load()
@@ -168,7 +160,7 @@ export default function FloorMapPage() {
     }
   }
 
-  async function rejectReservation(r: Reservation) {
+  const rejectReservation = async (r: Reservation) => {
     if (!confirm(`Từ chối phiếu đặt của ${r.customer_name}?`)) return
     try {
       await reservationsApi.cancel(r.id)
@@ -178,7 +170,7 @@ export default function FloorMapPage() {
     }
   }
 
-  async function checkinReservation(id: number) {
+  const checkinReservation = async (id: number) => {
     try {
       await reservationsApi.checkin(id)
       await load()
@@ -187,8 +179,7 @@ export default function FloorMapPage() {
     }
   }
 
-  // Le tan huy/xoa mot phieu dat truoc.
-  async function cancelReservation(id: number, label: string) {
+  const cancelReservation = async (id: number, label: string) => {
     if (!confirm(`Hủy phiếu đặt trước${label ? ` của ${label}` : ''}?`)) return
     try {
       await reservationsApi.cancel(id)
@@ -198,88 +189,99 @@ export default function FloorMapPage() {
     }
   }
 
-  const pending = reservations.filter((r) => r.status === 'PENDING')
+  const pending = useMemo(() => reservations.filter((r) => r.status === 'PENDING'), [reservations])
 
   const q = search.trim().toLowerCase()
-  const bookedResults = q
-    ? reservations.filter(
-        (r) =>
-          r.status !== 'CANCELLED' &&
-          r.status !== 'COMPLETED' &&
-          [r.customer_name, r.customer_phone, r.table_number, r.reservation_code].some((f) =>
-            (f ?? '').toString().toLowerCase().includes(q),
-          ),
-      )
-    : []
+  const bookedResults = useMemo(() => {
+    if (!q) return []
+    return reservations.filter(
+      (r) =>
+        r.status !== 'CANCELLED' &&
+        r.status !== 'COMPLETED' &&
+        [r.customer_name, r.customer_phone, r.table_number, r.reservation_code].some((f) =>
+          (f ?? '').toString().toLowerCase().includes(q),
+        ),
+    )
+  }, [reservations, q])
 
-  const conflictByTable = new Map<string, ReservationAlert>()
-  for (const a of alerts) {
-    if ((a.state === 'CONFLICT' || a.state === 'OVERDUE') && a.table_number) {
-      conflictByTable.set(a.table_number, a)
-    }
-  }
-
-  const today = todayStr()
-  const upcomingByTableId = new Map<number, Reservation>()
-  for (const r of reservations) {
-    if (r.status === 'CONFIRMED' && r.table_id && r.reservation_date?.startsWith(today)) {
-      const existing = upcomingByTableId.get(r.table_id)
-      if (!existing || (r.reservation_time ?? '') < (existing.reservation_time ?? '')) {
-        upcomingByTableId.set(r.table_id, r)
+  const conflictByTable = useMemo(() => {
+    const map = new Map<string, ReservationAlert>()
+    for (const a of alerts) {
+      if ((a.state === 'CONFLICT' || a.state === 'OVERDUE') && a.table_number) {
+        map.set(a.table_number, a)
       }
     }
-  }
+    return map
+  }, [alerts])
 
-  const noSection = tables.filter((t) => !t.section_id)
-  const countTrong = tables.filter((t) => t.status === 'AVAILABLE' && !t.upcoming_reservation && !upcomingByTableId.has(t.id)).length
-  const countServing = tables.filter((t) => t.status === 'SERVING').length
-  // Giu cho = so phieu dat da xac nhan (CONFIRMED) dang cho khach den, moi ngay.
-  const countHeld = reservations.filter((r) => r.status === 'CONFIRMED').length
+  const today = todayStr()
+  const upcomingByTableId = useMemo(() => {
+    const map = new Map<number, Reservation>()
+    for (const r of reservations) {
+      if (r.status === 'CONFIRMED' && r.table_id && r.reservation_date?.startsWith(today)) {
+        const existing = map.get(r.table_id)
+        if (!existing || (r.reservation_time ?? '') < (existing.reservation_time ?? '')) {
+          map.set(r.table_id, r)
+        }
+      }
+    }
+    return map
+  }, [reservations, today])
+
+  const noSection = useMemo(() => tables.filter((t) => !t.section_id), [tables])
+  const countTrong = useMemo(
+    () => tables.filter((t) => t.status === 'AVAILABLE' && !t.upcoming_reservation && !upcomingByTableId.has(t.id)).length,
+    [tables, upcomingByTableId],
+  )
+  const countServing = useMemo(() => tables.filter((t) => t.status === 'SERVING').length, [tables])
+  const countHeld = useMemo(() => reservations.filter((r) => r.status === 'CONFIRMED').length, [reservations])
 
   return (
-    <div className="mx-auto max-w-6xl">
-      {/* Header */}
-      <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="mx-auto max-w-6xl space-y-6">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Sơ đồ bàn</h1>
-          <p className="text-sm text-slate-500">Chạm vào bàn để mở bàn hoặc giữ chỗ</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <CalendarCheck size={22} className="text-emerald-600" /> Sơ Đồ Bàn Lễ Tân
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Chạm vào bàn để mở bàn, giữ chỗ hoặc nhận khách đến</p>
         </div>
-        <Button variant="secondary" onClick={() => void load()} disabled={loading} className="w-full justify-center sm:w-auto">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Làm mới
+        <Button variant="outline" size="sm" onClick={() => void load()} loading={loading} leftIcon={<RefreshCw size={14} />}>
+          Làm mới
         </Button>
       </div>
 
-      {/* Thong ke nhanh */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Bàn trống" value={countTrong} tone="bg-slate-100 text-slate-700" />
-        <StatTile label="Đang phục vụ" value={countServing} tone="bg-green-100 text-green-700" />
-        <StatTile label="Giữ chỗ" value={countHeld} tone="bg-blue-100 text-blue-700" />
-        <StatTile label="App chờ xác nhận" value={pending.length} tone="bg-indigo-100 text-indigo-700" />
+      {/* Thống Kê Nhanh (Stat Cards) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatTile label="Bàn trống" value={countTrong} tone="bg-emerald-500 text-white" />
+        <StatTile label="Đang phục vụ" value={countServing} tone="bg-emerald-600 text-white" />
+        <StatTile label="Đã giữ chỗ" value={countHeld} tone="bg-sky-600 text-white" />
+        <StatTile label="App chờ xác nhận" value={pending.length} tone="bg-amber-500 text-white" />
       </div>
 
-      {/* Thong bao dat ban tu app */}
-      <section className="mb-6 overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm">
+      {/* Thông báo đặt bàn từ App */}
+      <section className="overflow-hidden rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-900 shadow-xs">
         <button
           onClick={() => setPendingExpanded(!pendingExpanded)}
-          className="flex w-full items-center gap-2 bg-indigo-600 px-4 py-2.5 text-white transition-colors hover:bg-indigo-700"
+          className="flex w-full items-center gap-2 bg-emerald-600 dark:bg-emerald-700 px-4 py-3 text-white transition-colors cursor-pointer select-none"
         >
-          <BellRing size={17} />
-          <span className="text-sm font-semibold">Đặt bàn từ app chờ xác nhận</span>
+          <BellRing size={18} />
+          <span className="text-sm font-bold">Đặt Bàn Từ App Chờ Duyệt</span>
           <span className="ml-auto flex items-center gap-2">
-            <span className="rounded-full bg-white/25 px-2 py-0.5 text-xs font-bold">
+            <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-extrabold">
               {pending.length}
             </span>
             <ChevronDown
               size={18}
-              className={`transition-transform duration-200 ${pendingExpanded ? 'rotate-180' : ''}`}
+              className={cn('transition-transform duration-200', pendingExpanded && 'rotate-180')}
             />
           </span>
         </button>
         {pendingExpanded && (
-          <div className="border-t border-indigo-100 p-3">
+          <div className="border-t border-slate-100 dark:border-slate-800 p-4">
             {pending.length === 0 ? (
-              <p className="py-3 text-center text-sm text-slate-400">
-                Chưa có đặt bàn mới từ app · tự cập nhật mỗi phút
+              <p className="py-2 text-center text-xs font-medium text-slate-400">
+                Chưa có đơn đặt bàn mới từ App · Tự động cập nhật mỗi phút
               </p>
             ) : (
               <div className="space-y-2">
@@ -299,50 +301,42 @@ export default function FloorMapPage() {
         )}
       </section>
 
-      {/* Tim kiem */}
-      <div className="mb-6">
-        <div className="relative w-full sm:max-w-md">
-          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm bàn đã đặt: tên khách, SĐT, số bàn, mã phiếu..."
-            className="w-full rounded-full border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-          />
-        </div>
+      {/* Tim Kiem Phieu Dat */}
+      <div className="relative w-full max-w-md">
+        <Input
+          placeholder="Tìm bàn đã đặt: tên khách, SĐT, số bàn..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          leftIcon={<Search size={16} />}
+        />
         {q && (
-          <div className="mt-2 max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="absolute top-12 left-0 right-0 z-30 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl max-h-60 overflow-y-auto">
             {bookedResults.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-slate-400">Không tìm thấy bàn đặt nào khớp.</p>
+              <p className="px-4 py-3 text-xs text-slate-400">Không tìm thấy thông tin phù hợp.</p>
             ) : (
-              <ul className="divide-y divide-slate-100 text-sm">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                 {bookedResults.map((r) => (
-                  <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="flex items-start gap-2 text-slate-700 sm:items-center">
-                      <CalendarClock size={16} className="mt-0.5 shrink-0 text-slate-400 sm:mt-0" />
-                      <span className="leading-tight">
-                        <span className="font-semibold">
-                          {r.table_number || 'Chưa gán bàn'}
+                  <li key={r.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <div className="flex items-center gap-2">
+                      <CalendarClock size={15} className="text-slate-400" />
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-slate-100">
+                          {r.table_number || 'Chưa gán'}
                         </span>
-                        <span className="block text-xs text-slate-500 sm:inline sm:text-sm sm:text-slate-700">
-                          <span className="hidden sm:inline"> · </span>
-                          {r.customer_name} · {r.customer_phone} · {r.reservation_date?.slice(0, 10)}{' '}
-                          {r.reservation_time?.slice(0, 5)}
+                        <span className="ml-2 text-slate-500">
+                          {r.customer_name} ({r.customer_phone}) · {r.reservation_time?.slice(0, 5)}
                         </span>
-                      </span>
-                    </span>
-                    <span className="flex items-center justify-between sm:shrink-0 sm:justify-end gap-3">
-                      <StatusPill status={r.status} />
-                      {r.status !== 'CHECKED_IN' && (
-                        <button
-                          title="Hủy phiếu đặt"
-                          onClick={() => void cancelReservation(r.id, r.customer_name)}
-                          className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </span>
+                      </div>
+                    </div>
+                    {r.status !== 'CHECKED_IN' && (
+                      <button
+                        title="Hủy phiếu đặt"
+                        onClick={() => void cancelReservation(r.id, r.customer_name)}
+                        className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -351,9 +345,9 @@ export default function FloorMapPage() {
         )}
       </div>
 
-      {/* Canh bao chuyen ban */}
+      {/* Cảnh Báo Xung Đột Bàn */}
       {conflictByTable.size > 0 && (
-        <div className="mb-6 space-y-2">
+        <div className="space-y-2">
           {[...conflictByTable.values()].map((a) => (
             <ConflictRow
               key={a.id}
@@ -368,49 +362,52 @@ export default function FloorMapPage() {
 
       <ErrorText>{err}</ErrorText>
 
-      {/* Tab khu vuc */}
+      {/* Horizontal Tabs - Section Selector */}
       {(sections.length > 0 || noSection.length > 0) && (
-        <div className="sticky top-0 z-30 -mx-4 mb-6 flex gap-2.5 overflow-x-auto bg-white/95 px-4 py-3.5 backdrop-blur-xl shadow-sm border-b border-slate-200/50 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="sticky top-0 z-20 -mx-4 px-4 py-2.5 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-200/60 dark:border-slate-800">
           <button
             onClick={() => setActiveSectionId('all')}
-            className={`shrink-0 rounded-full border border-slate-200 px-4 py-1.5 text-sm font-medium transition-colors ${
+            className={cn(
+              'shrink-0 h-9 px-4 rounded-full text-xs font-semibold transition-all select-none cursor-pointer',
               activeSectionId === 'all'
-                ? 'bg-indigo-600 text-white border-transparent'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
-            }`}
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100',
+            )}
           >
-            Tất cả
+            Tất cả khu vực ({tables.length})
           </button>
           {sections.map((sec) => (
             <button
               key={sec.id}
               onClick={() => setActiveSectionId(sec.id)}
-              className={`shrink-0 rounded-full border border-slate-200 px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={cn(
+                'shrink-0 h-9 px-4 rounded-full text-xs font-semibold transition-all select-none cursor-pointer',
                 activeSectionId === sec.id
-                  ? 'bg-indigo-600 text-white border-transparent'
-                  : 'bg-white text-slate-600 hover:bg-slate-100'
-              }`}
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100',
+              )}
             >
-              {sec.name}
+              {sec.name} ({tables.filter((t) => t.section_id === sec.id).length})
             </button>
           ))}
           {noSection.length > 0 && (
             <button
               onClick={() => setActiveSectionId('none')}
-              className={`shrink-0 rounded-full border border-slate-200 px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={cn(
+                'shrink-0 h-9 px-4 rounded-full text-xs font-semibold transition-all select-none cursor-pointer',
                 activeSectionId === 'none'
-                  ? 'bg-indigo-600 text-white border-transparent'
-                  : 'bg-white text-slate-600 hover:bg-slate-100'
-              }`}
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100',
+              )}
             >
-              Chưa gán khu vực
+              Chưa gán khu vực ({noSection.length})
             </button>
           )}
         </div>
       )}
 
-      {/* Cac khu vuc */}
-      <div className="flex flex-col gap-8">
+      {/* Grid Danh Sách Khu Vực & Bàn */}
+      <div className="space-y-8">
         {sections
           .filter((sec) => activeSectionId === 'all' || activeSectionId === sec.id)
           .map((sec) => (
@@ -432,31 +429,12 @@ export default function FloorMapPage() {
             onSelect={setSelected}
           />
         )}
-        {sections.length === 0 && noSection.length === 0 && !loading && (
-          <p className="text-sm text-slate-400">Chi nhánh chưa có khu vực / bàn nào.</p>
-        )}
       </div>
 
-      {/* Chu thich (Legends) moved to bottom */}
-      <div className="mt-8 mb-4 border-t border-slate-100 pt-6">
-        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Chú thích trạng thái</h4>
-        <div className="flex flex-wrap gap-3 text-xs">
-          {(['AVAILABLE', 'SERVING', 'RESERVED', 'WAIT_PAYMENT'] as TableStatus[]).map((s) => (
-            <span key={s} className={`rounded-full px-2.5 py-1 font-medium ${statusMeta[s].chip}`}>
-              {statusMeta[s].label}
-            </span>
-          ))}
-          <span className={`rounded-full px-2.5 py-1 font-medium ${CONFLICT_META.chip}`}>
-            Sắp tới giờ, chưa trống
-          </span>
-        </div>
-      </div>
-
+      {/* Modal Thao tác Bàn */}
       {selected && (
         <TableActionModal
           table={selected}
-          allTables={tables}
-          allReservations={reservations}
           tableReservations={reservations
             .filter(
               (r) =>
@@ -465,17 +443,9 @@ export default function FloorMapPage() {
                 r.status !== 'COMPLETED',
             )
             .sort((x, y) => (x.reservation_time ?? '').localeCompare(y.reservation_time ?? ''))}
-          onSetStatus={async (status) => {
-            await setTableStatus(selected, status)
-            setSelected(null)
-          }}
           onCancelReservation={(id, name) => void cancelReservation(id, name)}
           onCheckinReservation={async (id) => {
             await checkinReservation(id)
-            setSelected(null)
-          }}
-          onChangeTable={async (rId, tId) => {
-            await switchTable(rId, tId)
             setSelected(null)
           }}
           onClose={() => setSelected(null)}
@@ -491,28 +461,15 @@ export default function FloorMapPage() {
 
 function StatTile({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className={`mb-1 inline-flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold ${tone}`}>
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex items-center gap-3">
+      <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center text-lg font-bold shadow-xs', tone)}>
         {value}
       </div>
-      <div className="text-sm text-slate-500">{label}</div>
+      <div className="flex flex-col">
+        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</span>
+        <span className="text-base font-bold text-slate-900 dark:text-slate-100">{value} bàn</span>
+      </div>
     </div>
-  )
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    PENDING: 'bg-amber-100 text-amber-700',
-    CONFIRMED: 'bg-blue-100 text-blue-700',
-    CHECKED_IN: 'bg-green-100 text-green-700',
-    COMPLETED: 'bg-slate-100 text-slate-500',
-    CANCELLED: 'bg-red-100 text-red-700',
-    NO_SHOW: 'bg-red-100 text-red-700',
-  }
-  return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${map[status] ?? 'bg-slate-100 text-slate-600'}`}>
-      {status}
-    </span>
   )
 }
 
@@ -530,27 +487,24 @@ function SectionBlock({
   onSelect: (t: DiningTable) => void
 }) {
   return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-slate-800">
-        <span className="inline-block h-4 w-1 shrink-0 rounded bg-indigo-500" />
-        <span className="truncate">{name}</span>
-        <span className="text-sm font-normal text-slate-400">({tables.length} bàn)</span>
-      </h2>
-      {tables.length === 0 ? (
-        <p className="text-sm text-slate-400">Không có bàn.</p>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {tables.map((t) => (
-            <TableCard
-              key={t.id}
-              t={t}
-              conflict={t.table_number ? conflicts.get(t.table_number) : undefined}
-              upcoming={upcoming.get(t.id) ?? t.upcoming_reservation ?? undefined}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-      )}
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <span className="h-4 w-1 rounded bg-emerald-600" />
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">{name}</h2>
+        <span className="text-xs font-semibold text-slate-400">({tables.length} bàn)</span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+        {tables.map((t) => (
+          <TableCard
+            key={t.id}
+            t={t}
+            conflict={t.table_number ? conflicts.get(t.table_number) : undefined}
+            upcoming={upcoming.get(t.id) ?? t.upcoming_reservation ?? undefined}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
     </section>
   )
 }
@@ -563,66 +517,66 @@ function TableCard({
 }: {
   t: DiningTable
   conflict?: ReservationAlert
-  // Chi can ten khach + gio: nhan ca Reservation (day du) lan upcoming_reservation (rut gon).
   upcoming?: Pick<Reservation, 'customer_name' | 'reservation_time'>
   onSelect: (t: DiningTable) => void
 }) {
-  // Ban trong nhung da co lich dat -> hien nhu "Giu cho".
   const displayStatus: TableStatus =
     t.status === 'AVAILABLE' && upcoming ? 'RESERVED' : t.status
   const baseMeta = conflict ? CONFLICT_META : statusMeta[displayStatus] ?? statusMeta.AVAILABLE
-  
+
   const isPaid = t.status === 'SERVING' && t.active_order_id == null
   const meta = {
     ...baseMeta,
     label: isPaid ? 'Đã thanh toán' : baseMeta.label,
-    chip: isPaid ? 'bg-teal-100 text-teal-700' : baseMeta.chip,
+    chip: isPaid ? 'bg-emerald-600 text-white' : baseMeta.chip,
   }
 
   return (
     <button
       type="button"
       onClick={() => onSelect(t)}
-      className={`relative flex aspect-[4/3] flex-col justify-between rounded-2xl border-2 p-3 text-left shadow-sm transition-all hover:shadow-md ${meta.card}`}
+      className={cn(
+        'relative flex flex-col justify-between min-h-[100px] p-3 rounded-xl border transition-all duration-150 text-left cursor-pointer select-none shadow-xs',
+        meta.card,
+      )}
     >
-      <div className="flex items-start justify-between">
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.chip}`}>
+      <div className="flex items-start justify-between gap-1">
+        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider', meta.chip)}>
           {meta.label}
         </span>
-        {(upcoming || conflict) && <BellRing size={14} className="text-red-500 animate-pulse" />}
+        {(upcoming || conflict) && <BellRing size={13} className="text-rose-500 animate-pulse" />}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <Armchair size={18} className={meta.accent} />
-        <span className={`text-2xl font-bold leading-none ${meta.accent}`}>{t.table_number}</span>
-        <span className="text-xs text-slate-400">· {t.capacity} chỗ</span>
+      <div className="my-2 flex items-center gap-1.5">
+        <Armchair size={16} className={meta.accent} />
+        <span className={cn('text-xl font-bold tracking-tight', meta.accent)}>{t.table_number}</span>
+        <span className="text-xs text-slate-400">({t.capacity} chỗ)</span>
       </div>
 
-      <div className="min-h-[16px] text-[11px] leading-tight">
+      <div className="text-[11px] font-medium leading-tight">
         {conflict ? (
-          <span className="font-medium text-red-700">
+          <span className="text-rose-600 font-bold">
             Hẹn {conflict.reservation_time?.slice(0, 5)} · {conflict.customer_name}
           </span>
         ) : t.status === 'SERVING' && t.active_order_amount > 0 ? (
-          <span className="text-green-700">
+          <span className="text-emerald-600 font-bold">
             {Number(t.active_order_amount).toLocaleString('vi-VN')}đ
           </span>
         ) : isPaid ? (
-          <span className="font-semibold text-teal-600">Khách vẫn đang ngồi</span>
+          <span className="text-emerald-600 font-semibold">Khách đang ngồi</span>
         ) : upcoming ? (
-          <span className="flex items-center gap-1 text-blue-700">
-            <Clock size={11} />
+          <span className="flex items-center gap-1 text-sky-600 font-semibold">
+            <Clock size={10} />
             {upcoming.reservation_time?.slice(0, 5)} · {upcoming.customer_name}
           </span>
         ) : (
-          <span className="text-slate-400">Chạm để thao tác</span>
+          <span className="text-slate-400">Trống</span>
         )}
       </div>
     </button>
   )
 }
 
-// Canh bao sap toi gio hen ma ban chua trong -> le tan chon ban trong khac de chuyen.
 function ConflictRow({
   a,
   tables,
@@ -634,7 +588,6 @@ function ConflictRow({
   reservations: Reservation[]
   onSwitch: (tableId: number) => void
 }) {
-  // Ban dang trong, du cho, va khong trung khung gio (<2h) voi lich khac tren ban do.
   const free = tables.filter(
     (t) =>
       t.status === 'AVAILABLE' &&
@@ -644,30 +597,28 @@ function ConflictRow({
   const [tableId, setTableId] = useState<string>('')
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
-      <span className="flex items-start gap-2 font-medium sm:items-center">
-        <AlertTriangle size={16} className="mt-0.5 shrink-0 sm:mt-0" /> <span className="leading-tight">{a.message}</span>
-      </span>
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-        <Select value={tableId} onChange={(e) => setTableId(e.target.value)} className="w-full py-2 sm:w-auto sm:py-1.5">
-          <option value="">
-            {free.length ? '-- Chọn bàn trống --' : 'Hết bàn trống phù hợp'}
-          </option>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-rose-300 bg-rose-50 dark:bg-rose-950/40 text-xs text-rose-800 dark:text-rose-200">
+      <div className="flex items-center gap-2 font-medium">
+        <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+        <span>{a.message}</span>
+      </div>
+      <div className="flex items-center gap-2 w-full sm:w-auto">
+        <Select value={tableId} onChange={(e) => setTableId(e.target.value)} className="h-8 text-xs bg-white dark:bg-slate-900">
+          <option value="">-- Chọn bàn trống thay thế --</option>
           {free.map((t) => (
             <option key={t.id} value={t.id}>
               {t.table_number} ({t.capacity} chỗ)
             </option>
           ))}
         </Select>
-        <Button className="w-full justify-center sm:w-auto" variant="danger" disabled={!tableId} onClick={() => tableId && onSwitch(Number(tableId))}>
-          <ArrowLeftRight size={15} /> Chuyển
+        <Button variant="danger" size="sm" disabled={!tableId} onClick={() => tableId && onSwitch(Number(tableId))} className="h-8 text-xs shrink-0">
+          <ArrowLeftRight size={13} /> Chuyển bàn
         </Button>
       </div>
     </div>
   )
 }
 
-// Mot phieu app cho xac nhan: le tan tu chon ban roi xac nhan.
 function PendingRow({
   r,
   tables,
@@ -681,7 +632,6 @@ function PendingRow({
   onConfirm: (tableId: number) => void
   onReject: () => void
 }) {
-  // Bàn du cho va khong trung khung gio (<2h) voi lich khac tren bàn do.
   const options = tables.filter(
     (t) =>
       t.capacity >= (r.guest_count ?? 1) &&
@@ -690,42 +640,23 @@ function PendingRow({
   const [tableId, setTableId] = useState<string>('')
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50 p-3.5 shadow-sm transition-shadow hover:shadow-md sm:p-4">
-      {/* Accent Line */}
-      <div className="absolute left-0 top-0 h-full w-1 bg-indigo-500" />
-      
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-          <Users size={18} />
+    <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+      <div className="flex items-center gap-3">
+        <div className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0">
+          <Users size={15} />
         </div>
-        <div className="flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-1.5">
-            <h3 className="text-base font-semibold text-slate-900">{r.customer_name}</h3>
-            <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
-              {r.guest_count} khách
-            </span>
+        <div>
+          <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+            {r.customer_name} <span className="text-emerald-600 font-semibold">({r.guest_count} khách)</span>
           </div>
-          <div className="mt-0.5 text-sm text-slate-500">{r.customer_phone}</div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-            <span className="flex items-center gap-1">
-              <Clock size={13} className="text-indigo-400" />
-              {r.reservation_time?.slice(0, 5)} · {r.reservation_date?.slice(0, 10)}
-            </span>
-            {r.table_number && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
-                Y/C {r.table_number}
-              </span>
-            )}
+          <div className="text-slate-500 font-medium mt-0.5">
+            {r.customer_phone} · {r.reservation_time?.slice(0, 5)} {r.reservation_date?.slice(0, 10)}
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2 border-t border-indigo-100/60 pt-3">
-        <Select 
-          value={tableId} 
-          onChange={(e) => setTableId(e.target.value)} 
-          className="flex-1 border-indigo-200 bg-white py-1.5 text-sm focus:border-indigo-400 focus:ring-indigo-100"
-        >
+      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <Select value={tableId} onChange={(e) => setTableId(e.target.value)} className="h-8 text-xs bg-white dark:bg-slate-900">
           <option value="">-- Xếp bàn --</option>
           {options.map((t) => (
             <option key={t.id} value={t.id}>
@@ -733,54 +664,33 @@ function PendingRow({
             </option>
           ))}
         </Select>
-        <Button 
-          disabled={!tableId} 
-          onClick={() => tableId && onConfirm(Number(tableId))}
-          className="shrink-0 px-4 py-2"
-        >
-          <Check size={16} className="sm:mr-1" /> <span className="hidden sm:inline">Duyệt</span>
+        <Button size="sm" disabled={!tableId} onClick={() => tableId && onConfirm(Number(tableId))} className="h-8 text-xs font-bold" leftIcon={<Check size={14} />}>
+          Duyệt
         </Button>
-        <button
-          onClick={onReject}
-          className="shrink-0 rounded-lg border border-red-200 bg-white p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
-          title="Từ chối"
-        >
-          <Trash2 size={16} />
+        <button onClick={onReject} className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg">
+          <Trash2 size={15} />
         </button>
       </div>
     </div>
   )
 }
 
-// Le tan: MO BAN (nhan khach ngay) hoac GIU BAN (giu cho - nhap thong tin khach).
 function TableActionModal({
   table,
-  allTables,
-  allReservations,
   tableReservations,
   onCancelReservation,
   onCheckinReservation,
-  onChangeTable,
   onClose,
   onSaved,
 }: {
   table: DiningTable
-  allTables: DiningTable[]
-  allReservations: Reservation[]
   tableReservations: Reservation[]
-  onSetStatus: (status: TableStatus) => Promise<void>
   onCancelReservation: (id: number, name: string) => void
   onCheckinReservation: (id: number) => Promise<void>
-  onChangeTable: (rId: number, tId: number) => Promise<void>
   onClose: () => void
   onSaved: () => void
 }) {
   const [mode, setMode] = useState<'menu' | 'hold' | 'open'>('menu')
-  const [switchResId, setSwitchResId] = useState<number | null>(null)
-  const [newTableId, setNewTableId] = useState<string>('')
-  const [rescheduleResId, setRescheduleResId] = useState<number | null>(null)
-  const [newDate, setNewDate] = useState('')
-  const [newTime, setNewTime] = useState('')
   const [busy, setBusy] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -791,9 +701,7 @@ function TableActionModal({
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
 
-  const meta = statusMeta[table.status] ?? statusMeta.AVAILABLE
-
-  async function openTable() {
+  const openTable = async () => {
     setBusy(true)
     setErr('')
     try {
@@ -809,7 +717,7 @@ function TableActionModal({
     }
   }
 
-  async function hold() {
+  const hold = async () => {
     setBusy(true)
     setErr('')
     try {
@@ -831,240 +739,105 @@ function TableActionModal({
   }
 
   return (
-    <Modal open title={`${table.table_name || table.table_number}`} onClose={onClose}>
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          <Armchair size={16} /> {table.capacity} chỗ
-          {table.section_name && ` · ${table.section_name}`}
-          <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${meta.chip}`}>
-            {meta.label}
+    <Modal open title={`Thao Tác Bàn ${table.table_name || table.table_number}`} onClose={onClose}>
+      <div className="flex flex-col gap-4 text-xs">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+          <span className="font-bold text-slate-700 dark:text-slate-200">
+            Sức chứa: {table.capacity} chỗ · {table.section_name || 'Khu vực chung'}
           </span>
+          <Badge variant="success" className="font-bold">
+            {table.status}
+          </Badge>
         </div>
 
         {tableReservations.length > 0 && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-2">
-            <div className="mb-1 px-1 text-xs font-semibold text-blue-800">
-              Lịch đặt của bàn ({tableReservations.length})
-            </div>
-            <ul className="space-y-1">
+          <div className="space-y-2 border border-sky-200 dark:border-sky-800 p-3 rounded-xl bg-sky-50/50 dark:bg-sky-950/30">
+            <div className="font-bold text-sky-800 dark:text-sky-300">Lịch Đặt Bàn Đang Có ({tableReservations.length})</div>
+            <div className="space-y-1.5">
               {tableReservations.map((r) => {
-                // Tinh cac ban trong de chuyen
-                const freeTables = allTables.filter(
-                  (t) =>
-                    t.id !== table.id &&
-                    t.status === 'AVAILABLE' &&
-                    t.capacity >= (r.guest_count ?? 1) &&
-                    !hasTimeConflict(allReservations, t.id, r.reservation_date, r.reservation_time, r.id)
-                )
-
                 return (
-                  <li
-                    key={r.id}
-                    className="flex flex-col gap-2 rounded-md bg-white px-2 py-1.5 text-sm"
-                  >
+                  <div key={r.id} className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-slate-700">
-                        <Clock size={12} className="mr-1 inline text-blue-500" />
-                        <span className="font-medium">{r.reservation_time?.slice(0, 5)}</span> ·{' '}
-                        {r.reservation_date?.slice(0, 10)} · {r.customer_name} ({r.guest_count}){' '}
-                        <StatusPill status={r.status} />
+                      <span className="font-bold text-slate-900 dark:text-slate-100">
+                        {r.reservation_time?.slice(0, 5)} · {r.customer_name} ({r.guest_count} khách)
                       </span>
                       {r.status !== 'CHECKED_IN' && (
-                        <div className="flex gap-1 items-center">
-                          <button
-                            title="Đổi bàn"
-                            onClick={() => {
-                              setSwitchResId(switchResId === r.id ? null : r.id)
-                              setNewTableId('')
-                              setRescheduleResId(null)
-                            }}
-                            className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
-                              switchResId === r.id
-                                ? 'bg-indigo-100 text-indigo-700'
-                                : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'
-                            }`}
-                          >
-                            Đổi bàn
-                          </button>
-                          <button
-                            title="Đổi lịch"
-                            onClick={() => {
-                              if (rescheduleResId === r.id) {
-                                setRescheduleResId(null)
-                              } else {
-                                setRescheduleResId(r.id)
-                                setNewDate(r.reservation_date || todayStr())
-                                setNewTime(r.reservation_time?.slice(0, 5) || '')
-                              }
-                              setSwitchResId(null)
-                            }}
-                            className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
-                              rescheduleResId === r.id
-                                ? 'bg-orange-100 text-orange-700'
-                                : 'text-orange-600 bg-orange-50 hover:bg-orange-100'
-                            }`}
-                          >
-                            Đổi lịch
-                          </button>
-                          <button
-                            title="Nhận khách (Check-in)"
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
                             onClick={() => onCheckinReservation(r.id)}
-                            disabled={table.status === 'SERVING' || table.status === 'WAIT_PAYMENT'}
-                            className={`rounded px-2 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
-                              table.status === 'SERVING' || table.status === 'WAIT_PAYMENT'
-                                ? 'text-slate-400 bg-slate-100 cursor-not-allowed'
-                                : 'text-green-600 bg-green-50 hover:bg-green-100'
-                            }`}
+                            disabled={table.status === 'SERVING'}
+                            className="h-7 text-[11px] font-bold"
                           >
                             Nhận khách
-                          </button>
+                          </Button>
                           <button
-                            title="Hủy lịch này"
                             onClick={() => onCancelReservation(r.id, r.customer_name)}
-                            className="rounded p-1 text-red-500 hover:bg-red-50 transition-colors"
+                            className="p-1 text-rose-500 hover:bg-rose-50 rounded"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
                       )}
                     </div>
-                    
-                    {/* Hien thi chon ban neu dang bat mode Doi ban */}
-                    {switchResId === r.id && (
-                      <div className="flex items-center gap-2 mt-1 border-t border-slate-100 pt-2">
-                        <Select 
-                          value={newTableId} 
-                          onChange={(e) => setNewTableId(e.target.value)} 
-                          className="flex-1 py-1.5 text-xs bg-slate-50 border-slate-200"
-                        >
-                          <option value="">
-                            {freeTables.length ? '-- Chọn bàn trống --' : 'Hết bàn trống phù hợp'}
-                          </option>
-                          {freeTables.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.table_number} ({t.capacity} chỗ)
-                            </option>
-                          ))}
-                        </Select>
-                        <Button 
-                          disabled={!newTableId || busy} 
-                          onClick={async () => {
-                            setBusy(true)
-                            await onChangeTable(r.id, Number(newTableId))
-                            setBusy(false)
-                          }}
-                          className="shrink-0 py-1.5 px-3 text-xs"
-                        >
-                          Lưu thay đổi
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {/* Hien thi form doi lich neu dang bat mode Doi lich */}
-                    {rescheduleResId === r.id && (
-                      <div className="flex items-center gap-2 mt-1 border-t border-slate-100 pt-2">
-                        <input 
-                          type="date"
-                          value={newDate} 
-                          onChange={(e) => setNewDate(e.target.value)}
-                          className="flex-1 rounded-md border-slate-200 py-1 px-2 text-xs bg-white shadow-sm focus:border-indigo-400 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                        />
-                        <input 
-                          type="time"
-                          value={newTime} 
-                          onChange={(e) => setNewTime(e.target.value)} 
-                          className="w-24 rounded-md border-slate-200 py-1 px-2 text-xs bg-white shadow-sm focus:border-indigo-400 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                        />
-                        <Button 
-                          disabled={!newDate || !newTime || busy} 
-                          onClick={async () => {
-                            setBusy(true)
-                            try {
-                              await reservationsApi.update(r.id, {
-                                reservation_date: newDate,
-                                reservation_time: newTime,
-                              })
-                              onSaved()
-                            } catch (e) {
-                              alert(errMsg(e))
-                            } finally {
-                              setBusy(false)
-                            }
-                          }}
-                          className="shrink-0 py-1.5 px-3 text-xs"
-                        >
-                          Lưu
-                        </Button>
-                      </div>
-                    )}
-                  </li>
+                  </div>
                 )
               })}
-            </ul>
+            </div>
           </div>
         )}
 
         {mode === 'menu' ? (
-          <>
+          <div className="grid grid-cols-2 gap-3">
             <button
               disabled={busy || table.status === 'SERVING'}
               onClick={() => setMode('open')}
-              className="flex items-center gap-3 rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100 disabled:opacity-50"
+              className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold hover:bg-emerald-100 cursor-pointer select-none"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
-                <DoorOpen size={20} />
-              </span>
-              <span>
-                <span className="block font-semibold text-slate-900">Mở bàn (Khách vãng lai)</span>
-                <span className="block text-xs text-slate-500">Mở bàn trống cho khách vãng lai</span>
-              </span>
+              <DoorOpen size={24} />
+              <span>Mở Bàn Vãng Lai</span>
             </button>
 
             <button
               onClick={() => setMode('hold')}
-              className="flex items-center gap-3 rounded-xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-left transition-colors hover:bg-blue-100"
+              className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-sky-300 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 font-bold hover:bg-sky-100 cursor-pointer select-none"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white">
-                <BookmarkPlus size={20} />
-              </span>
-              <span>
-                <span className="block font-semibold text-slate-900">Giữ bàn</span>
-                <span className="block text-xs text-slate-500">Giữ chỗ cho khách (nhập thông tin)</span>
-              </span>
+              <BookmarkPlus size={24} />
+              <span>Giữ Bàn / Đặt Trước</span>
             </button>
-          </>
+          </div>
         ) : mode === 'hold' ? (
-          <div className="flex flex-col gap-3">
-            <h4 className="text-sm font-semibold text-slate-700">Giữ chỗ — thông tin khách</h4>
-            <Input label="Tên khách" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 dark:text-slate-200">Giữ chỗ đặt trước</h4>
+            <Input label="Tên khách hàng" value={name} onChange={(e) => setName(e.target.value)} />
             <Input label="Số điện thoại" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Input label="Số khách" type="number" value={guests} onChange={(e) => setGuests(e.target.value)} />
+            <Input label="Số lượng khách" type="number" value={guests} onChange={(e) => setGuests(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
               <Input label="Ngày" value={date} onChange={(e) => setDate(e.target.value)} />
               <Input label="Giờ (HH:mm)" value={time} onChange={(e) => setTime(e.target.value)} placeholder="19:00" />
             </div>
-            <Input label="Ghi chú" value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: Ghế trẻ em, sinh nhật..." />
+            <Input label="Ghi chú" value={note} onChange={(e) => setNote(e.target.value)} />
             <ErrorText>{err}</ErrorText>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setMode('menu')}>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setMode('menu')}>
                 Quay lại
               </Button>
-              <Button onClick={hold} disabled={busy}>
-                {busy ? 'Đang lưu...' : 'Giữ bàn'}
+              <Button onClick={hold} loading={busy}>
+                Lưu giữ bàn
               </Button>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            <h4 className="text-sm font-semibold text-slate-700">Mở bàn cho khách vãng lai</h4>
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 dark:text-slate-200">Mở bàn cho khách vãng lai</h4>
             <Input label="Số lượng khách" type="number" value={walkinGuests} onChange={(e) => setWalkinGuests(e.target.value)} autoFocus />
             <ErrorText>{err}</ErrorText>
-            <div className="flex justify-end gap-2 mt-2">
-              <Button variant="secondary" onClick={() => setMode('menu')}>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setMode('menu')}>
                 Quay lại
               </Button>
-              <Button onClick={openTable} disabled={busy || !walkinGuests}>
-                {busy ? 'Đang mở...' : 'Mở bàn'}
+              <Button onClick={openTable} loading={busy}>
+                Xác nhận mở bàn
               </Button>
             </div>
           </div>

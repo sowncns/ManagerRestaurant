@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, ImageOff, Search, X } from 'lucide-react'
 import type { MenuItem, Category } from '../../api/menu'
 import { cn } from '../../lib/cn'
@@ -15,71 +15,103 @@ export default function MenuPanel({
   const [catId, setCatId] = useState<number | 'all'>('all')
   const [search, setSearch] = useState('')
 
-  // Chi hien category co it nhat 1 mon dang ban.
-  const usedCatIds = new Set(items.map((i) => i.category_id))
-  const tabs = categories.filter((c) => usedCatIds.has(c.category_id))
-  
+  // Filter categories with active items
+  const usedCatIds = useMemo(() => new Set(items.map((i) => i.category_id)), [items])
+  const tabs = useMemo(() => categories.filter((c) => usedCatIds.has(c.category_id)), [categories, usedCatIds])
+
   const normSearch = search.trim().toLowerCase()
-  const shown = items.filter((i) => {
-    if (catId !== 'all' && i.category_id !== catId) return false
-    if (normSearch && !i.name.toLowerCase().includes(normSearch)) return false
-    return true
-  })
+  const shown = useMemo(() => {
+    return items.filter((i) => {
+      if (catId !== 'all' && i.category_id !== catId) return false
+      if (normSearch && !i.name.toLowerCase().includes(normSearch)) return false
+      return true
+    })
+  }, [items, catId, normSearch])
 
   return (
-    <div>
-      <div className="sticky top-0 z-30 -mx-3 mb-3 flex flex-col gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl md:-mx-4 md:mb-4 md:gap-3 md:px-4 md:py-3 md:bg-white/95">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 md:left-3.5" />
+    <div className="flex flex-col gap-3 w-full">
+      {/* Search Input & Category Tabs - Mobile Sticky */}
+      <div className="sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md pb-2 pt-1 border-b border-slate-100 dark:border-slate-800 space-y-2">
+        {/* Search Bar */}
+        <div className="relative w-full">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="món ăn..."
+            placeholder="Tìm theo tên món..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border-none bg-slate-100/80 py-2 pl-9 pr-9 text-[14px] font-medium text-slate-900 placeholder:text-slate-500 focus:bg-slate-200/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all md:py-2.5 md:pl-10 md:pr-10 md:text-[15px]"
+            className="w-full h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-9 pr-9 text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-300 text-white hover:bg-slate-400"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
-              <X size={12} strokeWidth={3} />
+              <X size={14} />
             </button>
           )}
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <Tab active={catId === 'all'} onClick={() => setCatId('all')}>
-            Tất cả
-          </Tab>
+
+        {/* Category Horizontal Scroll Pills */}
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <button
+            onClick={() => setCatId('all')}
+            className={cn(
+              'shrink-0 h-8 px-3.5 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer',
+              catId === 'all'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200',
+            )}
+          >
+            Tất cả ({items.length})
+          </button>
           {tabs.map((c) => (
-            <Tab key={c.category_id} active={catId === c.category_id} onClick={() => setCatId(c.category_id)}>
+            <button
+              key={c.category_id}
+              onClick={() => setCatId(c.category_id)}
+              className={cn(
+                'shrink-0 h-8 px-3.5 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer',
+                catId === c.category_id
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200',
+              )}
+            >
               {c.name}
-            </Tab>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {/* Menu Cards Grid - Mobile Handheld 2 Columns */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
         {shown.map((it) => (
           <button
             key={it.menu_item_id}
             onClick={() => onAdd(it)}
-            className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-indigo-300 active:scale-[0.97]"
+            className="group flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-left transition-all duration-150 active:scale-[0.97] hover:border-emerald-500 hover:shadow-xs select-none cursor-pointer"
           >
-            <div className="flex aspect-square items-center justify-center bg-slate-50 overflow-hidden md:aspect-[4/3]">
+            <div className="relative aspect-[4/3] w-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center">
               {it.image_url ? (
-                <img src={it.image_url} alt={it.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <img
+                  src={it.image_url}
+                  alt={it.name}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
               ) : (
-                <ImageOff className="text-slate-300" size={24} />
+                <ImageOff className="text-slate-300 dark:text-slate-600" size={20} />
               )}
             </div>
-            <div className="flex flex-1 flex-col p-2 z-10 bg-white md:p-3">
-              <div className="line-clamp-2 text-[12px] font-semibold text-slate-800 leading-snug md:text-[13.5px]">{it.name}</div>
-              <div className="mt-auto flex items-center justify-between pt-2 md:pt-3">
-                <span className="text-[13px] font-bold text-slate-900 md:text-[15px]">
+
+            <div className="flex flex-col justify-between p-2.5 flex-1 w-full">
+              <span className="line-clamp-2 text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug">
+                {it.name}
+              </span>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   {Number(it.price).toLocaleString('vi-VN')}đ
                 </span>
-                <span className="rounded-xl bg-slate-900 p-1.5 text-white shadow-sm transition-all duration-300 group-hover:bg-indigo-600 group-hover:shadow-indigo-500/30 group-active:scale-90">
+                <span className="h-7 w-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs transition-transform group-active:scale-90">
                   <Plus size={16} />
                 </span>
               </div>
@@ -87,23 +119,10 @@ export default function MenuPanel({
           </button>
         ))}
       </div>
-      {shown.length === 0 && <p className="mt-4 text-sm text-slate-400">Không có món trong nhóm này.</p>}
-    </div>
-  )
-}
 
-function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'shrink-0 rounded-full px-3 py-1 text-[13px] font-medium transition-all duration-300 active:scale-95 md:px-4 md:py-1.5 md:text-[14px]',
-        active
-          ? 'bg-slate-900 text-white'
-          : 'bg-transparent text-slate-600 hover:bg-slate-100',
+      {shown.length === 0 && (
+        <p className="py-8 text-center text-xs font-medium text-slate-400">Không tìm thấy món phù hợp.</p>
       )}
-    >
-      {children}
-    </button>
+    </div>
   )
 }

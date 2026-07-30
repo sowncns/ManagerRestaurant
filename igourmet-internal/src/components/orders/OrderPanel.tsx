@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Plus, Minus, Send, StickyNote, Check, X, AlertTriangle, Clock, ReceiptText } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Minus, Send, StickyNote, Check, X, Clock, ReceiptText } from 'lucide-react'
 import type { MenuItem } from '../../api/menu'
 import type { Order, KitchenStatus, OrderItem } from '../../api/orders'
 import { Button, Badge } from '../ui'
@@ -10,15 +10,14 @@ export interface CartLine {
   note?: string
 }
 
-const kitchenMeta: Record<KitchenStatus, { label: string; cls: string }> = {
-  WAITING: { label: 'Chờ nấu', cls: 'bg-slate-100 text-slate-600' },
-  READY: { label: 'Xong', cls: 'bg-green-100 text-green-700' },
-  SERVED: { label: 'Đã phục vụ', cls: 'bg-emerald-50 text-emerald-600' },
-  CANCELLED: { label: 'Đã hủy', cls: 'bg-red-100 text-red-700' },
+const kitchenMeta: Record<KitchenStatus, { label: string; badge: string }> = {
+  WAITING: { label: 'Chờ nấu', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300' },
+  READY: { label: 'Xong', badge: 'bg-emerald-600 text-white animate-pulse' },
+  SERVED: { label: 'Đã phục vụ', badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+  CANCELLED: { label: 'Đã hủy', badge: 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300' },
 }
 
 export default function OrderPanel({
-  tableId: _tableId,
   order,
   isPaid,
   cart,
@@ -44,175 +43,218 @@ export default function OrderPanel({
   onRequestCancel: (item: OrderItem) => void
   onSubmit: () => void
 }) {
-  const cartLines = Object.entries(cart).map(([id, line]) => ({ id: Number(id), ...line }))
-  const sentItems = [...(order?.items ?? [])]
-    .filter((i) => i.kitchen_status !== 'CANCELLED')
-    .sort((a, b) => {
-      // Dua SERVED xuong cuoi cung
-      if (a.kitchen_status === 'SERVED' && b.kitchen_status !== 'SERVED') return 1
-      if (a.kitchen_status !== 'SERVED' && b.kitchen_status === 'SERVED') return -1
-      
-      // READY len dau
-      if (a.kitchen_status === 'READY' && b.kitchen_status !== 'READY') return -1
-      if (a.kitchen_status !== 'READY' && b.kitchen_status === 'READY') return 1
-      
-      // Con lai giu nguyen thu tu (hoac xep theo id)
-      return a.order_item_id - b.order_item_id
-    })
+  const cartLines = useMemo(() => {
+    return Object.entries(cart).map(([id, line]) => ({ id: Number(id), ...line }))
+  }, [cart])
+
+  const cartTotal = useMemo(() => {
+    return cartLines.reduce((acc, line) => {
+      const it = items.find((i) => i.menu_item_id === line.id)
+      return acc + (it ? Number(it.price) * line.quantity : 0)
+    }, 0)
+  }, [cartLines, items])
+
+  const sentItems = useMemo(() => {
+    return [...(order?.items ?? [])]
+      .filter((i) => i.kitchen_status !== 'CANCELLED')
+      .sort((a, b) => {
+        if (a.kitchen_status === 'SERVED' && b.kitchen_status !== 'SERVED') return 1
+        if (a.kitchen_status !== 'SERVED' && b.kitchen_status === 'SERVED') return -1
+        if (a.kitchen_status === 'READY' && b.kitchen_status !== 'READY') return -1
+        if (a.kitchen_status !== 'READY' && b.kitchen_status === 'READY') return 1
+        return a.order_item_id - b.order_item_id
+      })
+  }, [order])
+
   const empty = sentItems.length === 0 && cartLines.length === 0
 
   const [now, setNow] = useState(Date.now())
-
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 10000)
     return () => clearInterval(t)
   }, [])
 
   return (
-    <div className="flex h-full flex-col">
-
-
-      <div className="flex-1 space-y-2 overflow-y-auto">
+    <div className="flex h-full flex-col justify-between w-full">
+      {/* Scrollable Items List */}
+      <div className="flex-1 space-y-2 overflow-y-auto pr-0.5 custom-scrollbar">
         {empty && (
-          <div className="flex flex-col items-center justify-center p-4 text-center py-6">
+          <div className="flex flex-col items-center justify-center p-6 text-center">
             {isPaid ? (
               <>
-                <ReceiptText size={48} className="mb-3 text-teal-200" />
-                <Badge className="mb-2 bg-teal-100 text-teal-700 font-semibold text-[13px] px-3 py-1">ĐÃ THANH TOÁN</Badge>
-                <p className="mt-1 text-sm text-slate-400">Khách có thể tiếp tục gọi thêm món</p>
+                <ReceiptText size={40} className="mb-2 text-emerald-500" />
+                <Badge variant="success" className="mb-1 text-xs px-3 py-1 font-bold">ĐÃ THANH TOÁN</Badge>
+                <p className="text-xs text-slate-400">Khách có thể tiếp tục gọi thêm món</p>
               </>
             ) : (
-              <p className="text-sm text-slate-400">Chưa có món nào</p>
+              <p className="text-xs font-medium text-slate-400 py-6">Chưa có món nào được chọn.</p>
             )}
           </div>
         )}
 
-        {/* Mon da gui bep */}
-        {sentItems.map((it) => {
-          const isReady = it.kitchen_status === 'READY'
-          const isServed = it.kitchen_status === 'SERVED'
-          const diffMs = now - new Date(it.created_at || now).getTime()
-          const diffMins = Math.max(0, Math.floor(diffMs / 60000))
-          
-          let cardCls = 'border-slate-200/80 bg-white'
-          if (isReady) cardCls = 'border-green-300 bg-green-50/70'
-          else if (isServed) cardCls = 'border-emerald-100 bg-emerald-50/40 opacity-70'
-
-          return (
-          <div key={it.order_item_id} className={cn("rounded-2xl border p-3 shadow-sm transition-all hover:shadow-md", cardCls)}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-slate-800">
-                  {it.item_name} <span className="text-slate-400">× {it.quantity}</span>
-                </div>
-                {it.note && <div className="truncate text-xs text-slate-500">📝 {it.note}</div>}
-                
-                {/* Time */}
-                {(!isServed && !it.is_mistake && !it.has_pending_cancel && it.kitchen_status !== 'CANCELLED') && (
-                  <div className={cn("mt-1 flex items-center gap-1 text-[11px] font-medium", isReady ? "text-green-600" : diffMins >= 30 ? "text-red-600" : diffMins >= 15 ? "text-amber-600" : "text-slate-500")}>
-                    <Clock size={12} /> 
-                    {isReady ? 'Vừa xong' : `${diffMins} phút`}
-                  </div>
-                )}
-              </div>
-              {it.is_mistake ? (
-                <Badge className="bg-red-100 text-red-700">Nhầm lẫn</Badge>
-              ) : (
-                it.kitchen_status && (
-                  <Badge className={kitchenMeta[it.kitchen_status].cls}>
-                    {kitchenMeta[it.kitchen_status].label}
-                  </Badge>
-                )
-              )}
+        {/* Món đã gửi xuống bếp */}
+        {sentItems.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
+              Đã gửi bếp ({sentItems.length})
             </div>
-            {it.is_mistake ? (
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600">
-                <AlertTriangle size={13} /> Món đã làm — thu ngân sẽ bỏ khỏi bill khi thanh toán
-              </div>
-            ) : it.has_pending_cancel ? (
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
-                <Clock size={13} /> Đang chờ bếp duyệt yêu cầu hủy
-              </div>
-            ) : (
-              (() => {
-                const st = it.kitchen_status ?? 'WAITING'
-                const isWaiting = st === 'WAITING'
-                const canServe = st === 'READY'
-                if (st === 'CANCELLED') return null
-                return (
-                  <div className="mt-2 flex gap-2">
-                    {canServe && (
+            {sentItems.map((it) => {
+              const isReady = it.kitchen_status === 'READY'
+              const isServed = it.kitchen_status === 'SERVED'
+              const diffMs = now - new Date(it.created_at || now).getTime()
+              const diffMins = Math.max(0, Math.floor(diffMs / 60000))
+
+              return (
+                <div
+                  key={it.order_item_id}
+                  className={cn(
+                    'rounded-xl border p-3 transition-all',
+                    isReady
+                      ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40'
+                      : isServed
+                      ? 'border-slate-200 dark:border-slate-800 opacity-75'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                        {it.item_name} <span className="text-emerald-600 font-extrabold ml-1">× {it.quantity}</span>
+                      </div>
+                      {it.note && <div className="text-[11px] text-slate-500 mt-0.5">📝 {it.note}</div>}
+                      {!isServed && !it.is_mistake && !it.has_pending_cancel && (
+                        <div
+                          className={cn(
+                            'mt-1 flex items-center gap-1 text-[10px] font-semibold',
+                            isReady
+                              ? 'text-emerald-600'
+                              : diffMins >= 15
+                              ? 'text-rose-600'
+                              : 'text-slate-500',
+                          )}
+                        >
+                          <Clock size={11} />
+                          {isReady ? 'Vừa nấu xong' : `${diffMins} phút`}
+                        </div>
+                      )}
+                    </div>
+
+                    {it.is_mistake ? (
+                      <Badge variant="danger">Nhầm lẫn</Badge>
+                    ) : (
+                      it.kitchen_status && (
+                        <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold', kitchenMeta[it.kitchen_status].badge)}>
+                          {kitchenMeta[it.kitchen_status].label}
+                        </span>
+                      )
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  {!it.is_mistake && !it.has_pending_cancel && it.kitchen_status !== 'CANCELLED' && (
+                    <div className="mt-2 flex gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      {isReady && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="flex-1 h-8 text-xs font-bold"
+                          disabled={busy}
+                          onClick={() => onServe(it.order_item_id)}
+                        >
+                          <Check size={14} /> Phục vụ
+                        </Button>
+                      )}
                       <Button
-                        variant="secondary"
-                        className="flex-1 py-1.5 text-xs"
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 h-8 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                         disabled={busy}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => onServe(it.order_item_id)}
+                        onClick={() => onRequestCancel(it)}
                       >
-                        <Check size={14} /> Đã phục vụ
+                        <X size={14} /> {it.kitchen_status === 'WAITING' ? 'Hủy món' : 'Báo nhầm'}
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      className="flex-1 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                      disabled={busy}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => onRequestCancel(it)}
-                    >
-                      <X size={14} /> {isWaiting ? 'Yêu cầu hủy' : 'Báo nhầm'}
-                    </Button>
-                  </div>
-                )
-              })()
-            )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )})}
+        )}
 
-        {/* Gio cho gui */}
-        {cartLines.map((line) => {
-          const it = items.find((i) => i.menu_item_id === line.id)
-          return (
-            <div
-              key={line.id}
-              className="rounded-2xl border border-dashed border-indigo-300 bg-indigo-50/50 p-3 shadow-sm transition-all hover:shadow-md"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800">{it?.name}</div>
-                  {line.note && <div className="truncate text-xs text-slate-500">📝 {line.note}</div>}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => onEditNote(line.id)}
-                    className={cn(
-                      'rounded-md p-1.5 hover:bg-white',
-                      line.note ? 'text-indigo-600' : 'text-slate-400',
-                    )}
-                    title="Ghi chú"
-                  >
-                    <StickyNote size={15} />
-                  </button>
-                  <Button variant="secondary" className="px-2 py-1" onClick={() => onDec(line.id)}>
-                    <Minus size={13} />
-                  </Button>
-                  <span className="w-5 text-center text-sm">{line.quantity}</span>
-                  <Button variant="secondary" className="px-2 py-1" onClick={() => onInc(line.id)}>
-                    <Plus size={13} />
-                  </Button>
-                </div>
-              </div>
+        {/* Món mới chờ gửi bếp */}
+        {cartLines.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 px-1">
+              Đang chọn ({cartLines.length})
             </div>
-          )
-        })}
+            {cartLines.map((line) => {
+              const it = items.find((i) => i.menu_item_id === line.id)
+              return (
+                <div
+                  key={line.id}
+                  className="rounded-xl border border-dashed border-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/20 p-2.5 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{it?.name}</div>
+                    <div className="text-[11px] font-semibold text-emerald-600">
+                      {it ? `${(Number(it.price) * line.quantity).toLocaleString('vi-VN')}đ` : ''}
+                    </div>
+                    {line.note && <div className="text-[10px] text-slate-500 truncate">📝 {line.note}</div>}
+                  </div>
+
+                  {/* Stepper Controls */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => onEditNote(line.id)}
+                      className={cn(
+                        'p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+                        line.note && 'text-emerald-600 font-bold',
+                      )}
+                      title="Ghi chú"
+                    >
+                      <StickyNote size={15} />
+                    </button>
+                    <button
+                      onClick={() => onDec(line.id)}
+                      className="h-8 w-8 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold active:scale-90"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-6 text-center text-xs font-bold">{line.quantity}</span>
+                    <button
+                      onClick={() => onInc(line.id)}
+                      className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold active:scale-90 shadow-xs"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      <div className="mt-3 border-t border-slate-200/60 pt-4">
-        <Button 
-          className="w-full py-3.5 text-[15px] font-semibold shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all" 
-          onClick={() => onSubmit()} 
+      {/* Sticky Bottom Action Bar for Handheld Waiter */}
+      <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+        {cartLines.length > 0 && (
+          <div className="flex items-center justify-between text-xs px-1">
+            <span className="text-slate-500 font-medium">Tạm tính giỏ hàng:</span>
+            <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
+              {cartTotal.toLocaleString('vi-VN')}đ
+            </span>
+          </div>
+        )}
+        <Button
+          variant="primary"
+          size="lg"
+          className="w-full h-12 text-sm font-bold shadow-md shadow-emerald-600/20 active:scale-[0.98]"
+          onClick={onSubmit}
           disabled={busy || cartLines.length === 0}
+          loading={busy}
+          leftIcon={<Send size={18} />}
         >
-          <Send size={18} className={cn(busy && "animate-pulse")} /> {order ? 'Thêm món vào đơn' : 'Tạo đơn & gửi bếp'}
+          {order ? 'Gửi món mới xuống bếp' : 'Tạo đơn & Gửi bếp'}
         </Button>
       </div>
     </div>
