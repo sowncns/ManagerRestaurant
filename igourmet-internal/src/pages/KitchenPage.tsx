@@ -47,7 +47,7 @@ async function printTickets(items: KitchenQueueItem[]) {
   ${tickets
     .map(
       ({ it, dataUrl, barcodeUrl }) => `<div class="ticket">
-        <div class="tbl">Bàn ${it.table_number}</div>
+        <div class="tbl">${it.table_number}</div>
         <div class="name">${escapeHtml(it.item_name)}</div>
         <div class="qty">SL: ${it.quantity}${it.kitchen_type_name ? ' · ' + escapeHtml(it.kitchen_type_name) : ''}</div>
         ${it.note ? `<div class="note">${escapeHtml(it.note)}</div>` : ''}
@@ -81,7 +81,7 @@ function printPreorderTicket(p: ConfirmedPreorder) {
     .note { font-size: 12px; color: #444; font-style: italic; }
   </style></head><body>
     <div class="center title">MÓN ĐẶT TRƯỚC</div>
-    <div class="center sub">Hẹn ${time} · Bàn ${escapeHtml(String(p.table_number ?? ''))}</div>
+    <div class="center sub">Hẹn ${time} · ${escapeHtml(String(p.table_number ?? ''))}</div>
     <div class="line"></div>
     ${p.items
       .map(
@@ -241,7 +241,7 @@ export default function KitchenPage() {
     try {
       const data = await kitchenApi.confirmPreorder(p.reservation_id)
       printPreorderTicket(data)
-      setMsg(`Đã duyệt đơn đặt trước · Bàn ${p.table_number}`)
+      setMsg(`Đã duyệt đơn đặt trước · ${p.table_number}`)
       setErr('')
       await load()
     } catch (e) {
@@ -252,7 +252,7 @@ export default function KitchenPage() {
   }
 
   async function cancelPreorder(p: Preorder) {
-    if (!window.confirm(`Hủy đơn đặt trước của "${p.customer_name}" (Bàn ${p.table_number})? Cọc sẽ được hoàn về ví khách.`)) return
+    if (!window.confirm(`Hủy đơn đặt trước của "${p.customer_name}" (${p.table_number})? Cọc sẽ được hoàn về ví khách.`)) return
     setLoading(true)
     try {
       await kitchenApi.cancelPreorder(p.reservation_id)
@@ -370,7 +370,7 @@ export default function KitchenPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-bold text-slate-800">Bàn {p.table_number}</span>
+                      <span className="text-base font-bold text-slate-800">{p.table_number}</span>
                       <Badge className="bg-indigo-100 text-indigo-800">ĐẶT TRƯỚC</Badge>
                       <span className="flex items-center gap-1 text-sm text-indigo-700">
                         <Clock size={14} /> hẹn {String(p.reservation_time).slice(0, 5)}
@@ -519,7 +519,7 @@ function KitchenCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-slate-800">Bàn {it.table_number}</span>
+            <span className="text-base font-bold text-slate-800">{it.table_number}</span>
             {it.kitchen_type_name && <Badge className="bg-orange-100 text-orange-800">{it.kitchen_type_name}</Badge>}
             <span className={`text-sm flex items-center gap-1 ${timeColor}`}>
               <Clock size={14} /> {diffMins} phút

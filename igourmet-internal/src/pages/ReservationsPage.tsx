@@ -330,7 +330,7 @@ function ReservationForm({
           <option value="">-- Chưa gán --</option>
           {tables.map((t) => (
             <option key={t.id} value={t.id}>
-              {t.table_name || `Bàn ${t.table_number}`}
+              {t.table_name || t.table_number}
             </option>
           ))}
         </Select>

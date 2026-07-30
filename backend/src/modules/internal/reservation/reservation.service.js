@@ -217,10 +217,10 @@ exports.getAlerts = async (currentUser) => {
       message = `Chưa gán bàn cho "${r.customer_name}" (${r.guest_count} khách, ${r.reservation_time}). Còn ${r.free_tables} bàn trống đủ chỗ.`;
     } else if (OCCUPIED_TABLE_STATUSES.includes(r.table_status)) {
       state = "CONFLICT";
-      message = `Bàn ${r.table_number} còn khách nhưng có đặt lúc ${r.reservation_time}. Cần đổi bàn (còn ${r.free_tables} bàn trống đủ chỗ).`;
+      message = `${r.table_number} còn khách nhưng có đặt lúc ${r.reservation_time}. Cần đổi bàn (còn ${r.free_tables} bàn trống đủ chỗ).`;
     } else {
       state = "READY";
-      message = `Bàn ${r.table_number} sẵn sàng cho "${r.customer_name}" lúc ${r.reservation_time}.`;
+      message = `${r.table_number} sẵn sàng cho "${r.customer_name}" lúc ${r.reservation_time}.`;
     }
     if (r.minutes_until < 0) state = state === "READY" ? "READY" : "OVERDUE";
     return { ...r, state, message };

@@ -112,7 +112,7 @@ export default function InvoicesPage() {
                         {new Date(inv.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{inv.table_name || `Bàn ${inv.table_number || '?'}`}</td>
+                    <td className="px-4 py-3 text-slate-700">{inv.table_name || inv.table_number || '?'}</td>
                     <td className="px-4 py-3">
                       {inv.customer_name ? (
                         <div>

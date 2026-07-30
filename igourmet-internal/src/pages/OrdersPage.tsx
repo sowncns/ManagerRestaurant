@@ -378,7 +378,7 @@ export default function OrdersPage() {
         setErr('Bàn chưa có món nào để kiểm')
         return
       }
-      printKiemMon(table.table_name || `Bàn ${table.table_number}`, data)
+      printKiemMon(table.table_name || table.table_number, data)
     } catch (e) {
       setErr(errMsg(e))
     }
@@ -415,7 +415,7 @@ export default function OrdersPage() {
         
         <div className="flex flex-1 flex-col overflow-hidden px-1">
           <h1 className="truncate text-[17px] font-bold tracking-tight text-slate-900 md:text-xl">
-            {table.table_name || `Bàn ${table.table_number}`}
+            {table.table_name || table.table_number}
           </h1>
           {order && (
             <span className="text-[12px] font-semibold text-indigo-600">

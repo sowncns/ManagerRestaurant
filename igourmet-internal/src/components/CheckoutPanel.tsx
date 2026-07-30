@@ -26,7 +26,7 @@ function printInvoiceHtml(invoice: any) {
     <div class="center mb">HÓA ĐƠN THANH TOÁN</div>
     <div class="line"></div>
     <div class="flex mb"><span>Mã HĐ:</span><span>${invoice.invoice_code}</span></div>
-    <div class="flex mb"><span>Bàn:</span><span class="bold">${invoice.table_name || 'Bàn ' + invoice.table_number}</span></div>
+    <div class="flex mb"><span>Bàn:</span><span class="bold">${invoice.table_name || invoice.table_number}</span></div>
     <div class="flex mb"><span>Ngày:</span><span>${new Date(invoice.created_at).toLocaleString('vi-VN')}</span></div>
     <div class="line"></div>
     ${invoice.items?.map((it: any) => `
@@ -274,7 +274,7 @@ export default function CheckoutPanel({
         setErr('Bàn chưa có món nào để kiểm')
         return
       }
-      printKiemMon(table.table_name || `Bàn ${table.table_number}`, data)
+      printKiemMon(table.table_name || table.table_number, data)
     } catch (e) {
       setErr(errMsg(e))
     }
@@ -310,7 +310,7 @@ export default function CheckoutPanel({
         <div className="min-w-0">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Thu ngân</h3>
           <p className="truncate text-lg font-bold text-slate-900">
-            {table.table_name || `Bàn ${table.table_number}`}
+            {table.table_name || table.table_number}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

@@ -89,7 +89,7 @@ export default function CancelRequestsPage() {
                     )}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {r.table_name || `Bàn ${r.table_number}`} · {r.order_code}
+                    {r.table_name || r.table_number} · {r.order_code}
                   </div>
                 </div>
                 <Badge className="bg-amber-100 text-amber-700">

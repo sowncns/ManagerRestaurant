@@ -138,7 +138,7 @@ function CallRow({
             <Users size={13} /> {r.guest_count}
           </span>
           <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-            {r.table_number ? `Bàn ${r.table_number}` : 'Chưa gán bàn'}
+            {r.table_number || 'Chưa gán bàn'}
           </span>
         </div>
         {r.preorder_items.length > 0 && (

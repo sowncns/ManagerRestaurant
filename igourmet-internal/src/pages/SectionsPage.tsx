@@ -165,7 +165,7 @@ export default function SectionsPage() {
         <Table headers={['Bàn', ...branchHeader, 'Khu vực', 'Sức chứa', 'Trạng thái', '']}>
           {visibleTables.map((t) => (
             <tr key={t.id}>
-              <td className="px-4 py-3 font-medium text-slate-800">{t.table_name || `Bàn ${t.table_number}`}</td>
+              <td className="px-4 py-3 font-medium text-slate-800">{t.table_name || t.table_number}</td>
               {canPickBranch && <td className="px-4 py-3 text-slate-500">{t.branch_name || '—'}</td>}
               <td className="px-4 py-3 text-slate-500">{t.section_name || 'Chưa phân khu'}</td>
               <td className="px-4 py-3 text-slate-600">{t.capacity}</td>

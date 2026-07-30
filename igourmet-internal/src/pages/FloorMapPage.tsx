@@ -322,7 +322,7 @@ export default function FloorMapPage() {
                       <CalendarClock size={16} className="mt-0.5 shrink-0 text-slate-400 sm:mt-0" />
                       <span className="leading-tight">
                         <span className="font-semibold">
-                          {r.table_number ? `Bàn ${r.table_number}` : 'Chưa gán bàn'}
+                          {r.table_number || 'Chưa gán bàn'}
                         </span>
                         <span className="block text-xs text-slate-500 sm:inline sm:text-sm sm:text-slate-700">
                           <span className="hidden sm:inline"> · </span>
@@ -655,7 +655,7 @@ function ConflictRow({
           </option>
           {free.map((t) => (
             <option key={t.id} value={t.id}>
-              Bàn {t.table_number} ({t.capacity} chỗ)
+              {t.table_number} ({t.capacity} chỗ)
             </option>
           ))}
         </Select>
@@ -713,7 +713,7 @@ function PendingRow({
             </span>
             {r.table_number && (
               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
-                Y/C Bàn {r.table_number}
+                Y/C {r.table_number}
               </span>
             )}
           </div>
@@ -729,7 +729,7 @@ function PendingRow({
           <option value="">-- Xếp bàn --</option>
           {options.map((t) => (
             <option key={t.id} value={t.id}>
-              Bàn {t.table_number} ({t.capacity} chỗ)
+              {t.table_number} ({t.capacity} chỗ)
             </option>
           ))}
         </Select>
@@ -831,7 +831,7 @@ function TableActionModal({
   }
 
   return (
-    <Modal open title={`Bàn ${table.table_number}${table.table_name ? ` · ${table.table_name}` : ''}`} onClose={onClose}>
+    <Modal open title={`${table.table_name || table.table_number}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
           <Armchair size={16} /> {table.capacity} chỗ
@@ -942,7 +942,7 @@ function TableActionModal({
                           </option>
                           {freeTables.map((t) => (
                             <option key={t.id} value={t.id}>
-                              Bàn {t.table_number} ({t.capacity} chỗ)
+                              {t.table_number} ({t.capacity} chỗ)
                             </option>
                           ))}
                         </Select>

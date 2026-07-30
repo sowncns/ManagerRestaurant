@@ -86,7 +86,7 @@ export default function TableGridView({
               )}
             >
               <span className="text-lg font-semibold text-slate-900">
-                {t.table_name || `Bàn ${t.table_number}`}
+                {t.table_name || t.table_number}
               </span>
               <span className={cn('mt-0.5 text-xs font-medium', isPaid ? 'text-teal-700' : meta.accent)}>
                 {isPaid ? 'Đã thanh toán' : meta.label}
