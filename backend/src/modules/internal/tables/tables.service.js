@@ -168,13 +168,11 @@ async function getTablesBySection(currentUser, sectionId) {
 
 async function createTable(currentUser, data) {
   const { branch_id, section_id, table_number, table_name, capacity } = data;
-  if (!branch_id || !table_number) throw new BadRequest("Vui lòng nhập chi nhánh và số bàn");
+  if (!branch_id || !section_id || !table_number) throw new BadRequest("Vui lòng nhập chi nhánh, khu vực và số bàn");
   await assertBranchAccess(currentUser, branch_id, SECTION_WRITE_ROLES, "Bạn không có quyền tạo bàn");
 
-  if (section_id) {
-    const section = await getSectionById(currentUser, section_id, SECTION_WRITE_ROLES);
-    if (section.branch_id !== Number(branch_id)) throw new BadRequest("Khu vực không thuộc chi nhánh của bàn");
-  }
+  const section = await getSectionById(currentUser, section_id, SECTION_WRITE_ROLES);
+  if (section.branch_id !== Number(branch_id)) throw new BadRequest("Khu vực không thuộc chi nhánh của bàn");
 
   const id = await repo.insertTable({ branch_id, section_id, table_number, table_name, capacity });
   return getTableById(currentUser, id);
@@ -187,7 +185,8 @@ async function updateTable(currentUser, tableId, data) {
     await assertBranchAccess(currentUser, nextBranchId, SECTION_WRITE_ROLES, "Bạn không có quyền chuyển bàn sang chi nhánh này");
   }
 
-  if (data.section_id) {
+  if (data.section_id !== undefined) {
+    if (!data.section_id) throw new BadRequest("Bàn phải thuộc một khu vực");
     const section = await getSectionById(currentUser, data.section_id, SECTION_WRITE_ROLES);
     if (section.branch_id !== Number(nextBranchId)) throw new BadRequest("Khu vực không thuộc chi nhánh của bàn");
   }

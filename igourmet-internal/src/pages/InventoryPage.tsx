@@ -356,10 +356,9 @@ function TxnForm({
     try {
       const q = Number(quantity)
       if (!q || q <= 0) throw new Error('Số lượng phải lớn hơn 0')
-      // WASTE la xuat -> gui so am; PURCHASE nhap -> duong; ADJUSTMENT giu nguyen dau nhap.
-      const signed = type === 'WASTE' ? -Math.abs(q) : q
+      // Backend tu quy doi dau theo type (PURCHASE +, WASTE -...), luon gui quantity duong.
       await inventoryApi.createTransaction(
-        { ingredientId: ingredient.id, type, quantity: signed, note: note || undefined },
+        { ingredientId: ingredient.id, type, quantity: q, note: note || undefined },
         companyId,
         branchId,
       )

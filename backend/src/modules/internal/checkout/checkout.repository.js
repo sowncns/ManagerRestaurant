@@ -58,10 +58,9 @@ exports.lockOrderItemForVoid = (client, orderItemId, companyId, branchId) =>
     .query(
       `SELECT oi.order_item_id, oi.order_id, oi.item_name, oi.quantity, oi.total_price,
               oi.unit_price, oi.billing_status, oi.kitchen_status,
-              o.status AS order_status, b.void_pin_threshold
+              o.status AS order_status
        FROM order_items oi
        JOIN orders o ON o.order_id = oi.order_id
-       JOIN branches b ON b.branch_id = o.branch_id
        WHERE oi.order_item_id = $1 AND o.company_id = $2 AND o.branch_id = $3
        FOR UPDATE OF oi`,
       [orderItemId, companyId, branchId]

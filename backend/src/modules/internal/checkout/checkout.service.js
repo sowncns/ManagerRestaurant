@@ -369,16 +369,7 @@ async function getLatestInvoice(tableId) {
   return { ...invoice, items };
 }
 
-const MANAGER_ROLES = new Set(["BRANCH_MANAGER", "COMPANY_ADMIN", "SUPER_ADMIN"]);
 const CLOSED_ORDER = new Set(["COMPLETED", "CANCELLED"]);
-
-// Chot chong gian lan chung: thao tac lam bill giam >= nguong (dong) can quan ly thuc hien.
-function assertReduceAllowed(user, removedAmount, threshold, label) {
-  const t = Number(threshold) || 0;
-  if (t > 0 && removedAmount >= t && !MANAGER_ROLES.has(user.role)) {
-    throw new BadRequest(`${label} giá trị ≥ ${t.toLocaleString("vi-VN")}đ cần quản lý thực hiện`);
-  }
-}
 
 async function discountItem(user, orderItemId, { discount_percent, note }) {
   const client = await pool.connect();
@@ -391,8 +382,6 @@ async function discountItem(user, orderItemId, { discount_percent, note }) {
     }
     if (item.billing_status === "VOIDED") throw new BadRequest("Món đã bị void, không thể giảm giá");
 
-    const removed = Number(item.unit_price) * item.quantity * (Number(discount_percent) / 100);
-    assertReduceAllowed(user, removed, item.void_pin_threshold, "Giảm giá");
     await repo.setItemDiscount(client, orderItemId, discount_percent);
     await client.query("COMMIT");
     const lineBase = Number(item.unit_price) * item.quantity;
@@ -422,7 +411,6 @@ async function voidItem(user, orderItemId, { reason_code, note }) {
     if (item.billing_status === "VOIDED") throw new BadRequest("Món đã được void trước đó");
 
     const amount = Number(item.total_price) || Number(item.unit_price) * item.quantity;
-    assertReduceAllowed(user, amount, item.void_pin_threshold, "Void");
 
     await repo.setItemVoided(client, orderItemId, user.employee_id || user.id);
     await client.query("COMMIT");
@@ -461,7 +449,6 @@ async function reduceQuantity(user, orderItemId, { quantity, note }) {
     }
 
     const removed = Number(item.unit_price) * (item.quantity - newQty);
-    assertReduceAllowed(user, removed, item.void_pin_threshold, "Giảm số lượng");
 
     const newTotal = Number(item.unit_price) * newQty;
     await repo.setItemQuantity(client, orderItemId, newQty, newTotal);

@@ -20,11 +20,11 @@ const TABLE_SELECT = `
          upcoming_reservations.reservation_time AS res_time, upcoming_reservations.guest_count AS res_guest_count
   FROM dining_tables dt
   JOIN branches b ON b.branch_id = dt.branch_id
-  LEFT JOIN branch_sections bs ON bs.section_id = dt.section_id
+  JOIN branch_sections bs ON bs.section_id = dt.section_id
   ${UPCOMING_RES_JOIN}`;
 
 const TABLE_ORDER_BY = `
-  ORDER BY bs.name ASC NULLS LAST, LENGTH(dt.table_number) ASC, dt.table_number ASC, dt.created_at DESC`;
+  ORDER BY bs.name ASC, LENGTH(dt.table_number) ASC, dt.table_number ASC, dt.created_at DESC`;
 
 const SECTION_SELECT = `
   SELECT bs.*, bs.section_id AS id, b.name AS branch_name, b.company_id
@@ -95,7 +95,7 @@ exports.findTablesScoped = (currentUser) => {
               upcoming_reservations.reservation_time AS res_time, upcoming_reservations.guest_count AS res_guest_count
        FROM dining_tables dt
        JOIN branches b ON b.branch_id = dt.branch_id
-       LEFT JOIN branch_sections bs ON bs.section_id = dt.section_id
+       JOIN branch_sections bs ON bs.section_id = dt.section_id
        LEFT JOIN (
          SELECT DISTINCT ON (table_id) table_id, waiter_id, total_amount, order_id
          FROM orders WHERE status IN ${ACTIVE_ORDER_STATUSES}
@@ -128,7 +128,7 @@ exports.insertTable = ({ branch_id, section_id, table_number, table_name, capaci
     .query(
       `INSERT INTO dining_tables (branch_id, section_id, table_number, table_name, capacity, status)
        VALUES ($1, $2, $3, $4, $5, 'AVAILABLE') RETURNING table_id AS id`,
-      [branch_id, section_id || null, table_number, table_name || null, capacity || 4]
+      [branch_id, section_id, table_number, table_name || null, capacity || 4]
     )
     .then((r) => r.rows[0].id);
 
