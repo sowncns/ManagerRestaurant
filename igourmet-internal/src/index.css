@@ -5,6 +5,10 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background: #f8fafc;

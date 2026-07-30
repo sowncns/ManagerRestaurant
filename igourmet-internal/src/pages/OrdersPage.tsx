@@ -408,7 +408,7 @@ export default function OrdersPage() {
 
   return (
     <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100vh-9rem)]">
-      <div className="sticky top-0 z-40 -mx-4 mb-2 flex items-center gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_4px_20px_rgb(0,0,0,0.02)] md:static md:mx-0 md:mb-5 md:bg-transparent md:px-0 md:py-3 md:border-none md:shadow-none">
+      <div className="sticky top-0 z-40 -mx-3 mb-2 flex items-center gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_4px_20px_rgb(0,0,0,0.02)] md:static md:mx-0 md:mb-5 md:bg-transparent md:px-0 md:py-3 md:border-none md:shadow-none">
         <button
           onClick={() => setTable(null)}
           className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 active:scale-95 md:h-9 md:w-9"

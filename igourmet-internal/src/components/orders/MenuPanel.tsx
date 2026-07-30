@@ -28,7 +28,7 @@ export default function MenuPanel({
 
   return (
     <div>
-      <div className="sticky top-0 z-30 -mx-4 mb-3 flex flex-col gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl md:mb-4 md:gap-3 md:px-4 md:py-3 md:bg-white/95">
+      <div className="sticky top-0 z-30 -mx-3 mb-3 flex flex-col gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl md:-mx-4 md:mb-4 md:gap-3 md:px-4 md:py-3 md:bg-white/95">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 md:left-3.5" />
           <input

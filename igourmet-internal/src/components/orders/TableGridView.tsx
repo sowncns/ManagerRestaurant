@@ -59,7 +59,7 @@ export default function TableGridView({
 
   return (
     <div>
-      <div className="sticky top-[49px] md:top-[45px] z-30 -mx-4 mb-6 flex gap-2.5 overflow-x-auto bg-white/95 px-4 py-3.5 backdrop-blur-xl shadow-sm border-b border-slate-200/50 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div className="sticky top-[49px] md:top-[45px] z-30 -mx-3 mb-6 flex gap-2.5 overflow-x-auto bg-white/95 px-3 py-3.5 backdrop-blur-xl shadow-sm border-b border-slate-200/50 md:-mx-4 md:px-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <Tab active={active === 'all'} onClick={() => setActive('all')}>
           Tất cả
         </Tab>

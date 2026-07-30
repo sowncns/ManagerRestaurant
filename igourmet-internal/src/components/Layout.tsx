@@ -16,7 +16,7 @@ export default function Layout() {
   const visibleNav = nav.filter((item) => staff && item.roles.includes(staff.role))
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-slate-50/50">
+    <div className="flex min-h-screen flex-col md:flex-row bg-slate-50/50 overflow-x-hidden">
       <aside className={cn(
         "fixed bottom-0 left-0 z-50 w-full border-t border-slate-200 bg-white md:static md:flex md:w-60 md:shrink-0 md:flex-col md:border-r md:border-t-0 md:px-4 md:py-6",
         visibleNav.length <= 1 ? "hidden" : "block"
@@ -71,7 +71,7 @@ export default function Layout() {
             </button>
           </div>
         </header>
-        <main className="flex-1 p-3 md:p-8">
+        <main className="flex-1 overflow-x-hidden p-3 md:p-8">
           <Outlet />
         </main>
       </div>
