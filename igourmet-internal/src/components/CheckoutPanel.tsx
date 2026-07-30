@@ -5,6 +5,7 @@ import { ordersApi, type Order, type OrderItem } from '../api/orders'
 import { checkoutApi, type ScanResult, type CheckoutIntent, type PaymentMethod } from '../api/checkout'
 import { printKiemMon } from '../lib/kiemMon'
 import { errMsg } from '../lib/errMsg'
+import { useRealtime } from '../lib/useRealtime'
 import QRCode from 'qrcode'
 import { Button, Modal, Input, ErrorText, Badge } from './ui'
 
@@ -111,6 +112,23 @@ export default function CheckoutPanel({
     void loadIntent()
     void loadVoucher()
   }, [loadOrder, loadIntent, loadVoucher])
+
+  useRealtime('/internal/orders/kitchen/stream', loadOrder)
+
+  // Auto-poll intent khi dang cho khach thanh toan (APP/TRANSFER).
+  useEffect(() => {
+    if (!intent) return
+    const t = setInterval(async () => {
+      try {
+        const res = await checkoutApi.getIntent(table.id)
+        if (!res.hasIntent) {
+          clearInterval(t)
+          setPaidInvoiceId(intent.invoiceId || 1)
+        }
+      } catch { /* ignore */ }
+    }, 5000)
+    return () => clearInterval(t)
+  }, [intent, table.id])
 
   const allItems = order?.items ?? []
   // Bo mon da huy; mon void hien nhung khong tinh tien.

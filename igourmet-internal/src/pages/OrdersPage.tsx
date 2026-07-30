@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ReceiptText, RefreshCw, Clock, DoorOpen, ClipboardList, X, QrCode, Camera } from 'lucide-react'
+import { ArrowLeft, ReceiptText, RefreshCw, Clock, DoorOpen, X, QrCode, Camera } from 'lucide-react'
 import { BrowserMultiFormatReader } from '@zxing/library'
 import { tablesApi, type DiningTable } from '../api/tables'
 import { menuApi, type MenuItem, type Category } from '../api/menu'
 import { ordersApi, cancelApi, type Order, type KitchenStatus, type OrderItem, type CancelReason } from '../api/orders'
 import { reservationsApi } from '../api/reservations'
 import { checkoutApi } from '../api/checkout'
-import { printKiemMon } from '../lib/kiemMon'
+
 import { errMsg } from '../lib/errMsg'
+import { useRealtime } from '../lib/useRealtime'
 import QRCode from 'qrcode'
 import { Button, ErrorText, Modal, Input } from '../components/ui'
 import TableGridView from '../components/orders/TableGridView'
@@ -107,6 +108,8 @@ export default function OrdersPage() {
       if (pollRef.current) window.clearInterval(pollRef.current)
     }
   }, [table])
+
+  useRealtime('/internal/orders/kitchen/stream', () => { refreshOrder(); loadTables() })
 
   async function handleScan(tokenStr: string) {
     if (!tokenStr.trim() || !table) return
@@ -369,21 +372,6 @@ export default function OrdersPage() {
     )
   }
 
-  async function handleKiemMon() {
-    if (!table) return
-    setErr('')
-    try {
-      const data = await checkoutApi.getKiemMon(table.id)
-      if (!data.items.length) {
-        setErr('Bàn chưa có món nào để kiểm')
-        return
-      }
-      printKiemMon(table.table_name || table.table_number, data)
-    } catch (e) {
-      setErr(errMsg(e))
-    }
-  }
-
   // ----- Màn gọi món -----
   const isTablePaid = table?.status === 'SERVING' && table.active_order_id == null
   const panel = (
@@ -404,17 +392,17 @@ export default function OrdersPage() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col md:h-[calc(100vh-9rem)]">
-      <div className="sticky top-0 z-40 -mx-4 mb-3 flex items-center gap-2 bg-white/80 px-4 py-3 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_4px_20px_rgb(0,0,0,0.02)] md:static md:mx-0 md:mb-5 md:bg-transparent md:px-0 md:border-none md:shadow-none">
-        <button 
+    <div className="flex h-[calc(100dvh-7rem)] flex-col md:h-[calc(100vh-9rem)]">
+      <div className="sticky top-0 z-40 -mx-4 mb-2 flex items-center gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_4px_20px_rgb(0,0,0,0.02)] md:static md:mx-0 md:mb-5 md:bg-transparent md:px-0 md:py-3 md:border-none md:shadow-none">
+        <button
           onClick={() => setTable(null)}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 active:scale-95 md:h-9 md:w-9"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} className="md:w-[18px] md:h-[18px]" />
         </button>
-        
+
         <div className="flex flex-1 flex-col overflow-hidden px-1">
-          <h1 className="truncate text-[17px] font-bold tracking-tight text-slate-900 md:text-xl">
+          <h1 className="truncate text-[15px] font-bold tracking-tight text-slate-900 md:text-xl">
             {table.table_name || table.table_number}
           </h1>
           {order && (
@@ -438,14 +426,6 @@ export default function OrdersPage() {
               <QrCode size={14} className="sm:w-[15px] sm:h-[15px]" /> 
               <span className="hidden sm:inline">Quét mã</span>
               <span className="sm:hidden">Quét</span>
-            </button>
-            <button 
-              onClick={handleKiemMon}
-              className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-indigo-50 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 active:scale-95"
-            >
-              <ClipboardList size={14} className="sm:w-[15px] sm:h-[15px]" />
-              <span className="hidden sm:inline">Kiểm món</span>
-              <span className="sm:hidden">Kiểm</span>
             </button>
             {table.status === 'WAIT_PAYMENT' && intentMethod === 'TRANSFER' && (
               <button 

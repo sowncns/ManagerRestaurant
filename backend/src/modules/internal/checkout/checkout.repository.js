@@ -41,12 +41,13 @@ exports.fetchOrderItemsSnapshot = (client, tableId) =>
 exports.fetchKiemMonItems = (tableId) =>
   pool
     .query(
-      `SELECT mi.name AS item_name, oi.quantity, oi.unit_price, oi.discount_percent,
-              (oi.unit_price * oi.quantity * (1 - oi.discount_percent / 100.0)) AS line_total, mi.vat
+      `SELECT mi.name AS item_name, SUM(oi.quantity) AS quantity, oi.unit_price, oi.discount_percent,
+              SUM(oi.unit_price * oi.quantity * (1 - oi.discount_percent / 100.0)) AS line_total, mi.vat
        FROM orders o
        JOIN order_items oi ON o.order_id = oi.order_id
        JOIN menu_items mi ON oi.menu_item_id = mi.menu_item_id
        WHERE o.table_id = $1 AND o.status IN ${ACTIVE_STATUSES} AND ${BILLABLE}
+       GROUP BY mi.name, oi.unit_price, oi.discount_percent, mi.vat
        ORDER BY mi.name`,
       [tableId]
     )

@@ -28,15 +28,15 @@ export default function MenuPanel({
 
   return (
     <div>
-      <div className="sticky top-0 z-30 -mx-4 mb-4 flex flex-col gap-3 bg-white/80 px-4 py-3 backdrop-blur-xl md:bg-white/95">
+      <div className="sticky top-0 z-30 -mx-4 mb-3 flex flex-col gap-2 bg-white/80 px-3 py-2 backdrop-blur-xl md:mb-4 md:gap-3 md:px-4 md:py-3 md:bg-white/95">
         <div className="relative">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 md:left-3.5" />
           <input
             type="text"
-            placeholder="Tìm món ăn..."
+            placeholder="món ăn..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border-none bg-slate-100/80 py-2.5 pl-10 pr-10 text-[15px] font-medium text-slate-900 placeholder:text-slate-500 focus:bg-slate-200/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            className="w-full rounded-2xl border-none bg-slate-100/80 py-2 pl-9 pr-9 text-[14px] font-medium text-slate-900 placeholder:text-slate-500 focus:bg-slate-200/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all md:py-2.5 md:pl-10 md:pr-10 md:text-[15px]"
           />
           {search && (
             <button
@@ -66,17 +66,17 @@ export default function MenuPanel({
             onClick={() => onAdd(it)}
             className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 hover:border-indigo-300 active:scale-[0.97]"
           >
-            <div className="flex aspect-[4/3] items-center justify-center bg-slate-50 overflow-hidden">
+            <div className="flex aspect-square items-center justify-center bg-slate-50 overflow-hidden md:aspect-[4/3]">
               {it.image_url ? (
                 <img src={it.image_url} alt={it.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
               ) : (
                 <ImageOff className="text-slate-300" size={24} />
               )}
             </div>
-            <div className="flex flex-1 flex-col p-3 z-10 bg-white">
-              <div className="line-clamp-2 text-[13.5px] font-semibold text-slate-800 leading-snug">{it.name}</div>
-              <div className="mt-auto flex items-center justify-between pt-3">
-                <span className="text-[15px] font-bold text-slate-900">
+            <div className="flex flex-1 flex-col p-2 z-10 bg-white md:p-3">
+              <div className="line-clamp-2 text-[12px] font-semibold text-slate-800 leading-snug md:text-[13.5px]">{it.name}</div>
+              <div className="mt-auto flex items-center justify-between pt-2 md:pt-3">
+                <span className="text-[13px] font-bold text-slate-900 md:text-[15px]">
                   {Number(it.price).toLocaleString('vi-VN')}đ
                 </span>
                 <span className="rounded-xl bg-slate-900 p-1.5 text-white shadow-sm transition-all duration-300 group-hover:bg-indigo-600 group-hover:shadow-indigo-500/30 group-active:scale-90">
@@ -97,7 +97,7 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
     <button
       onClick={onClick}
       className={cn(
-        'shrink-0 rounded-full px-4 py-1.5 text-[14px] font-medium transition-all duration-300 active:scale-95',
+        'shrink-0 rounded-full px-3 py-1 text-[13px] font-medium transition-all duration-300 active:scale-95 md:px-4 md:py-1.5 md:text-[14px]',
         active
           ? 'bg-slate-900 text-white'
           : 'bg-transparent text-slate-600 hover:bg-slate-100',
