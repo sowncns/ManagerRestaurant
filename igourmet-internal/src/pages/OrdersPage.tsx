@@ -418,7 +418,7 @@ export default function OrdersPage() {
 
         <div className="flex flex-1 flex-col overflow-hidden px-1">
           <h1 className="truncate text-[15px] font-bold tracking-tight text-slate-900 md:text-xl">
-            {table.table_name || table.table_number}
+            {(table.table_name || table.table_number).replace(/^Bàn\s*/i, '')}
           </h1>
           {order && (
             <span className="text-[12px] font-semibold text-indigo-600">
@@ -510,7 +510,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Thanh duoi mo bottom-sheet (dien thoai) */}
-      <div className="fixed inset-x-0 bottom-16 z-40 flex items-center justify-center p-4 md:hidden">
+      <div className="fixed inset-x-0 bottom-14 z-40 flex items-center justify-center px-4 pb-2 md:hidden">
         <button 
           className="group relative flex w-[90%] max-w-sm items-center justify-between overflow-hidden rounded-[2rem] bg-slate-900 px-5 py-3.5 shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-all duration-300 active:scale-95" 
           onClick={() => setSheetOpen(true)}
@@ -570,20 +570,20 @@ export default function OrdersPage() {
       />
 
       {scanModalOpen && (
-        <Modal open title="Quét mã khách (Voucher/Member)" onClose={() => { setScanModalOpen(false); setCameraOn(false); }}>
+        <Modal open title="Quét mã khách" onClose={() => { setScanModalOpen(false); setCameraOn(false); }}>
           <div className="flex flex-col gap-3">
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Dán token QR từ app khách"
+                placeholder="Dán token QR"
                 value={scanToken}
                 onChange={(e) => setScanToken(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
               />
-              <Button onClick={() => setCameraOn(!cameraOn)} variant={cameraOn ? "danger" : "secondary"}>
+              <Button className="shrink-0" onClick={() => setCameraOn(!cameraOn)} variant={cameraOn ? "danger" : "secondary"}>
                 {cameraOn ? <X size={16} /> : <Camera size={16} />}
               </Button>
-              <Button onClick={() => handleScan(scanToken)} disabled={busy || !scanToken.trim()}>
+              <Button className="shrink-0" onClick={() => handleScan(scanToken)} disabled={busy || !scanToken.trim()}>
                 Quét
               </Button>
             </div>
