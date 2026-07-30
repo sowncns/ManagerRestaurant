@@ -46,7 +46,21 @@ export interface KiemMon {
   total: number
 }
 
+export interface VatInfo {
+  companyName: string
+  taxCode: string
+  address: string
+  email: string
+}
+
 export const checkoutApi = {
+  async saveTableVat(tableId: number, vat: VatInfo): Promise<void> {
+    await api.post(`/internal/checkout/table/${tableId}/vat`, vat)
+  },
+  async getTableVat(tableId: number): Promise<VatInfo | null> {
+    const { data } = await api.get(`/internal/checkout/table/${tableId}/vat`)
+    return data
+  },
   async getKiemMon(tableId: number): Promise<KiemMon> {
     const { data } = await api.get(`/internal/checkout/table/${tableId}/kiem-mon`)
     return data

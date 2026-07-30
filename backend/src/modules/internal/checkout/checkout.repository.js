@@ -192,7 +192,7 @@ exports.setInvoicePaymentStatus = (client, orderCode, status) =>
 exports.lockInvoiceById = (client, invoiceId) =>
   client
     .query(
-      "SELECT invoice_id AS id, table_id, customer_id, amount, status FROM invoices WHERE invoice_id = $1 FOR UPDATE",
+      "SELECT invoice_id AS id, invoice_code, table_id, customer_id, amount, status, items FROM invoices WHERE invoice_id = $1 FOR UPDATE",
       [invoiceId]
     )
     .then((r) => r.rows[0]);

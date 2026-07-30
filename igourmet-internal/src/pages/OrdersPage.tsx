@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ReceiptText, RefreshCw, Clock, DoorOpen, X, QrCode, Camera } from 'lucide-react'
+import { ArrowLeft, ReceiptText, RefreshCw, Clock, DoorOpen, X, QrCode, Camera, FileText } from 'lucide-react'
 import { BrowserMultiFormatReader } from '@zxing/library'
 import { tablesApi, type DiningTable } from '../api/tables'
 import { menuApi, type MenuItem, type Category } from '../api/menu'
 import { ordersApi, cancelApi, type Order, type KitchenStatus, type OrderItem, type CancelReason } from '../api/orders'
 import { reservationsApi } from '../api/reservations'
-import { checkoutApi } from '../api/checkout'
+import { checkoutApi, type VatInfo } from '../api/checkout'
 
 import { errMsg } from '../lib/errMsg'
 import { useRealtime } from '../lib/useRealtime'
@@ -43,6 +43,9 @@ export default function OrdersPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [intentMethod, setIntentMethod] = useState<string | null>(null)
+  const [vatModalOpen, setVatModalOpen] = useState(false)
+  const [vatInfo, setVatInfo] = useState<VatInfo>({ companyName: '', taxCode: '', address: '', email: '' })
+  const [vatSaved, setVatSaved] = useState(false)
   const pollRef = useRef<number | null>(null)
 
   // Tai du lieu nen (menu + category) 1 lan.
@@ -93,6 +96,18 @@ export default function OrdersPage() {
         }
       })
       .catch(() => setScanRes(''))
+
+    checkoutApi.getTableVat(table.id)
+      .then(v => {
+        if (v && v.email) {
+          setVatInfo(v)
+          setVatSaved(true)
+        } else {
+          setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
+          setVatSaved(false)
+        }
+      })
+      .catch(() => { setVatInfo({ companyName: '', taxCode: '', address: '', email: '' }); setVatSaved(false) })
   }, [table])
 
   // Polling trang thai bep khi dang o màn gọi món.
@@ -419,11 +434,23 @@ export default function OrdersPage() {
 
         {order?.items && order.items.some(it => it.kitchen_status !== 'CANCELLED') && (
           <div className="flex shrink-0 gap-1.5 sm:gap-2">
-            <button 
+            <button
+              onClick={() => setVatModalOpen(true)}
+              className={`flex items-center gap-1 sm:gap-1.5 rounded-full px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors active:scale-95 ${
+                vatSaved
+                  ? 'bg-green-50 border border-green-300 text-green-700'
+                  : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <FileText size={14} className="sm:w-[15px] sm:h-[15px]" />
+              <span className="hidden sm:inline">HĐ VAT</span>
+              <span className="sm:hidden">VAT</span>
+            </button>
+            <button
               onClick={() => { setScanToken(''); setScanRes(''); setCameraOn(false); setScanModalOpen(true); }}
               className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-slate-50 border border-slate-200 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 active:scale-95"
             >
-              <QrCode size={14} className="sm:w-[15px] sm:h-[15px]" /> 
+              <QrCode size={14} className="sm:w-[15px] sm:h-[15px]" />
               <span className="hidden sm:inline">Quét mã</span>
               <span className="sm:hidden">Quét</span>
             </button>
@@ -594,6 +621,60 @@ export default function OrdersPage() {
               Đóng
             </Button>
           </div>
+        </Modal>
+      )}
+
+      {vatModalOpen && (
+        <Modal open title="Thông tin xuất hóa đơn VAT" onClose={() => setVatModalOpen(false)}>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!table || !vatInfo.email.trim()) return
+              setBusy(true)
+              try {
+                await checkoutApi.saveTableVat(table.id, vatInfo)
+                setVatSaved(true)
+                setVatModalOpen(false)
+              } catch (ex) {
+                alert(errMsg(ex))
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <Input label="Tên công ty" value={vatInfo.companyName} onChange={(e) => setVatInfo({ ...vatInfo, companyName: e.target.value })} />
+            <Input label="Mã số thuế" value={vatInfo.taxCode} onChange={(e) => setVatInfo({ ...vatInfo, taxCode: e.target.value })} />
+            <Input label="Địa chỉ" value={vatInfo.address} onChange={(e) => setVatInfo({ ...vatInfo, address: e.target.value })} />
+            <Input label="Email nhận hóa đơn *" type="email" required value={vatInfo.email} onChange={(e) => setVatInfo({ ...vatInfo, email: e.target.value })} />
+            <div className="flex gap-2 pt-2">
+              {vatSaved && (
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!table) return
+                    setBusy(true)
+                    try {
+                      await checkoutApi.saveTableVat(table.id, { companyName: '', taxCode: '', address: '', email: '' })
+                      setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
+                      setVatSaved(false)
+                      setVatModalOpen(false)
+                    } catch (ex) {
+                      alert(errMsg(ex))
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                >
+                  Xóa
+                </Button>
+              )}
+              <Button type="button" variant="secondary" onClick={() => setVatModalOpen(false)}>Hủy</Button>
+              <Button type="submit" disabled={busy || !vatInfo.email.trim()}>Lưu</Button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>
