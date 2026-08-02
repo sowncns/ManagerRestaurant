@@ -17,6 +17,7 @@ import BranchesPage from './pages/BranchesPage'
 import SectionsPage from './pages/SectionsPage'
 import InventoryPage from './pages/InventoryPage'
 import AuditLogsPage from './pages/AuditLogsPage'
+import ProcurementPage from './pages/ProcurementPage'
 import CompaniesPage from './pages/CompaniesPage'
 import CashbackRatesPage from './pages/CashbackRatesPage'
 import HomeBannersPage from './pages/HomeBannersPage'
@@ -79,6 +80,7 @@ export default function App() {
           </Route>
 
           <Route element={<ProtectedRoute roles={ROLE_GROUPS.MANAGERS} />}>
+            <Route path="procurement" element={<ProcurementPage />} />
             <Route path="menu" element={<MenuPage />} />
             <Route path="staff" element={<EmployeesPage />} />
             <Route path="branches" element={<BranchesPage />} />
