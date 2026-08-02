@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Power, Eye, Check, X, Truck } from 'lucide-react'
+import { Plus, Pencil, Power, Eye, Check, X } from 'lucide-react'
 import {
   procurementApi,
   type Supplier,
@@ -20,8 +20,6 @@ type Tab = 'suppliers' | 'receipts'
 export default function ProcurementPage() {
   const { staff } = useAuth()
   const isSuperAdmin = staff?.role === 'SUPER_ADMIN'
-  const isCompanyAdmin = staff?.role === 'COMPANY_ADMIN'
-
   const [tab, setTab] = useState<Tab>('suppliers')
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
   const [companyId, setCompanyId] = useState<number | undefined>(undefined)
@@ -368,7 +366,7 @@ function ReceiptDetail({ id, companyId, onClose }: { id: number; companyId?: num
                 <td className="px-4 py-2 text-slate-500">{it.unit}</td>
                 <td className="px-4 py-2">{num(it.quantity)}</td>
                 <td className="px-4 py-2">{num(it.unit_price)}₫</td>
-                <td className="px-4 py-2">{num(it.line_amount)}₫</td>
+                <td className="px-4 py-2">{num(it.line_amount ?? 0)}₫</td>
               </tr>
             ))}
           </Table>
