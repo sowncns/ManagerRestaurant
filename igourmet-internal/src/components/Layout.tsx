@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Sun, Moon, Bell, Clock, Store, Menu, X } from 'lucide-react'
+import { LogOut, Clock, Store, Menu, X } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { nav } from '../config/nav'
 import { useAuth } from '../context/AuthContext'
@@ -9,26 +9,11 @@ export default function Layout() {
   const { staff, logout } = useAuth()
   const navigate = useNavigate()
 
-  // Dark Mode State
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('theme') === 'dark'
-  })
-
   // Mobile Drawer Sidebar state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Live Clock State
   const [timeStr, setTimeStr] = useState('')
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }, [darkMode])
 
   useEffect(() => {
     const updateTime = () => {
@@ -152,24 +137,6 @@ export default function Layout() {
               <Clock size={13} className="text-slate-400" />
               <span>{timeStr}</span>
             </div>
-
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title={darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
-            >
-              {darkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} />}
-            </button>
-
-            {/* Notification Bell */}
-            <button
-              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 relative transition-colors cursor-pointer"
-              title="Thông báo"
-            >
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
-            </button>
 
             {/* Mobile Logout Button */}
             <button

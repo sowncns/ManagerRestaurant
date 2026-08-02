@@ -205,6 +205,98 @@ exports.confirmReceipt = async (receiptId, companyId, staffId) => {
   }
 };
 
+exports.findReceiptByCode = (code, companyId) =>
+  pool
+    .query(
+      `SELECT pr.*, pr.purchase_receipt_id AS id, s.supplier_name, s.supplier_code,
+              b.name AS branch_name, e.full_name AS created_by_name
+       FROM purchase_receipts pr
+       JOIN suppliers s ON s.supplier_id = pr.supplier_id
+       LEFT JOIN branches b ON b.branch_id = pr.branch_id
+       LEFT JOIN employees e ON e.employee_id = pr.created_by
+       WHERE pr.receipt_code = $1 AND pr.company_id = $2`,
+      [code, companyId]
+    )
+    .then((r) => r.rows[0]);
+
+// Import receipt: confirm + auto-create missing ingredients
+exports.importReceipt = async (receiptId, companyId, branchId, staffId) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const receipt = (
+      await client.query(
+        "SELECT purchase_receipt_id AS id, status, branch_id FROM purchase_receipts WHERE purchase_receipt_id = $1 AND company_id = $2 FOR UPDATE",
+        [receiptId, companyId]
+      )
+    ).rows[0];
+    if (!receipt) { await client.query("ROLLBACK"); return { error: "NOT_FOUND" }; }
+    if (receipt.status === "CONFIRMED") { await client.query("ROLLBACK"); return { error: "ALREADY_IMPORTED" }; }
+    if (receipt.status === "CANCELLED") { await client.query("ROLLBACK"); return { error: "CANCELLED" }; }
+
+    const effectiveBranchId = branchId || receipt.branch_id;
+
+    const items = (
+      await client.query(
+        `SELECT pri.ingredient_id, pri.quantity, pri.unit_price,
+                i.ingredient_code, i.ingredient_name, i.unit
+         FROM purchase_receipt_items pri
+         JOIN ingredients i ON i.ingredient_id = pri.ingredient_id
+         WHERE pri.purchase_receipt_id = $1`,
+        [receiptId]
+      )
+    ).rows;
+
+    for (const it of items) {
+      // Check if ingredient exists for this company
+      let ing = (
+        await client.query(
+          "SELECT ingredient_id AS id, current_stock FROM ingredients WHERE ingredient_id = $1 AND company_id = $2 FOR UPDATE",
+          [it.ingredient_id, companyId]
+        )
+      ).rows[0];
+
+      if (!ing) {
+        // Auto-create ingredient
+        ing = (
+          await client.query(
+            `INSERT INTO ingredients (company_id, branch_id, ingredient_code, ingredient_name, unit, current_stock, minimum_stock, cost_price)
+             VALUES ($1, $2, $3, $4, $5, 0, 0, $6)
+             RETURNING ingredient_id AS id, current_stock`,
+            [companyId, effectiveBranchId, it.ingredient_code || `NL-${it.ingredient_id}`, it.ingredient_name || `Nguyên liệu ${it.ingredient_id}`, it.unit || 'kg', Number(it.unit_price) || 0]
+          )
+        ).rows[0];
+      }
+
+      const before = Number(ing.current_stock);
+      const after = before + Number(it.quantity);
+      const price = Number(it.unit_price);
+
+      await client.query(
+        `UPDATE ingredients SET current_stock = $1, cost_price = CASE WHEN $2 > 0 THEN $2 ELSE cost_price END, updated_at = NOW() WHERE ingredient_id = $3`,
+        [after, price, ing.id]
+      );
+      await client.query(
+        `INSERT INTO inventory_transactions (ingredient_id, transaction_type, reference_type, reference_id, quantity, stock_before, stock_after, created_by, note)
+         VALUES ($1,'PURCHASE','PURCHASE_RECEIPT',$2,$3,$4,$5,$6,$7)`,
+        [ing.id, receiptId, it.quantity, before, after, staffId ?? null, `Nhập kho theo phiếu #${receiptId}`]
+      );
+    }
+
+    await client.query(
+      `UPDATE purchase_receipts SET status = 'CONFIRMED', confirmed_by = $1, confirmed_at = NOW(), updated_at = NOW() WHERE purchase_receipt_id = $2`,
+      [staffId ?? null, receiptId]
+    );
+    await client.query("COMMIT");
+    return { ok: true, itemCount: items.length };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+};
+
 exports.cancelReceipt = (id, companyId) =>
   pool
     .query(

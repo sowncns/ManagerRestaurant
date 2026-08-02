@@ -112,4 +112,12 @@ export const procurementApi = {
   async cancelReceipt(id: number, companyId?: number): Promise<void> {
     await api.delete(`/internal/procurement/receipts/${id}`, withCompany(companyId))
   },
+  async getReceiptByCode(code: string, companyId?: number): Promise<Receipt & { items: ReceiptItem[] }> {
+    const { data } = await api.get(`/internal/procurement/receipts/by-code/${encodeURIComponent(code)}`, withCompany(companyId))
+    return data.receipt
+  },
+  async importByCode(code: string, companyId?: number, branchId?: number): Promise<Receipt & { items: ReceiptItem[] }> {
+    const { data } = await api.post('/internal/procurement/receipts/import-by-code', { code, companyId, branchId })
+    return data.receipt
+  },
 }

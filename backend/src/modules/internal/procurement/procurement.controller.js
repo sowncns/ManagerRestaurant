@@ -69,6 +69,26 @@ exports.confirmReceipt = asyncHandler(async (req, res) => {
   res.json({ message: "Xác nhận phiếu nhập & cập nhật tồn kho thành công", receipt });
 });
 
+exports.getReceiptByCode = asyncHandler(async (req, res) => {
+  const { code } = req.params;
+  if (!code) throw BadRequest("Thiếu mã phiếu");
+  const receipt = await service.getReceiptByCode(code, cid(req));
+  res.json({ message: "Lấy phiếu nhập theo mã thành công", receipt });
+});
+
+exports.importReceiptByCode = asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  if (!code) throw BadRequest("Thiếu mã phiếu");
+  const branchId = req.body.branchId ? Number(req.body.branchId) : (req.user.branch_id || null);
+  const result = await service.importReceiptByCode(code, cid(req), branchId, req.user.id);
+  audit.record(audit.ctx(req), {
+    action: "IMPORT", entityType: "PURCHASE_RECEIPT", entityId: result.receipt.id,
+    description: `Nhập kho theo phiếu ${code}`,
+    metadata: { itemCount: result.itemCount },
+  });
+  res.json({ message: "Nhập kho từ phiếu thành công", receipt: result.receipt });
+});
+
 exports.cancelReceipt = asyncHandler(async (req, res) => {
   const receipt = await service.cancelReceipt(parseId(req.params.id, "receipt id"), cid(req));
   res.json({ message: "Đã hủy phiếu nhập", receipt });

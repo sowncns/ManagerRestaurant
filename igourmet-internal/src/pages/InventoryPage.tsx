@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, ArrowDownUp, Power } from 'lucide-react'
-import { inventoryApi, type Ingredient, type IngredientInput, type StockTxnType } from '../api/inventory'
+import { Plus, Pencil, Power, FileInput } from 'lucide-react'
+import { inventoryApi, type Ingredient, type IngredientInput } from '../api/inventory'
+import { procurementApi } from '../api/procurement'
 import { api } from '../lib/api'
 import { errMsg } from '../lib/errMsg'
 import { Button, PageHeader, Table, Modal, Input, Select, Badge, ErrorText } from '../components/ui'
@@ -9,17 +10,10 @@ import { useAuth } from '../context/AuthContext'
 const num = (v: number | string) => new Intl.NumberFormat('vi-VN').format(Number(v || 0))
 const isLow = (i: Ingredient) => Number(i.current_stock) <= Number(i.minimum_stock)
 
-const TXN_LABELS: { value: StockTxnType; label: string; sign: string }[] = [
-  { value: 'PURCHASE', label: 'NHẬP KHO', sign: '+' },
-  { value: 'WASTE', label: 'XUẤT KHO', sign: '−' },
-  // { value: 'STOCK_ADJUSTMENT', label: 'Điều chỉnh', sign: '±' },
-]
-
 export default function InventoryPage() {
   const { staff } = useAuth()
   const isSuperAdmin = staff?.role === 'SUPER_ADMIN'
   const isCompanyAdmin = staff?.role === 'COMPANY_ADMIN'
-  // Bep chi XEM kho. BRANCH_MANAGER chi nhap/xuat (canDoTxn), khong them/sua/toggle nguyen lieu (canManageIngredient).
   const canDoTxn = staff?.role !== 'KITCHEN'
   const canManageIngredient = isSuperAdmin || isCompanyAdmin
 
@@ -31,7 +25,7 @@ export default function InventoryPage() {
   const [onlyLow, setOnlyLow] = useState(false)
   const [editing, setEditing] = useState<Ingredient | null>(null)
   const [openForm, setOpenForm] = useState(false)
-  const [txnFor, setTxnFor] = useState<Ingredient | null>(null)
+  const [openImport, setOpenImport] = useState(false)
   const [err, setErr] = useState('')
 
   // Super admin chon cong ty de xem kho.
@@ -79,15 +73,22 @@ export default function InventoryPage() {
       <PageHeader
         title="Kho nguyên liệu"
         action={
-          ready && canManageIngredient ? (
-            <Button
-              onClick={() => {
-                setEditing(null)
-                setOpenForm(true)
-              }}
-            >
-              <Plus size={16} /> Thêm nguyên liệu
-            </Button>
+          ready && canDoTxn ? (
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setOpenImport(true)}>
+                <FileInput size={16} /> Nhập từ phiếu
+              </Button>
+              {canManageIngredient && (
+                <Button
+                  onClick={() => {
+                    setEditing(null)
+                    setOpenForm(true)
+                  }}
+                >
+                  <Plus size={16} /> Thêm nguyên liệu
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -166,15 +167,6 @@ export default function InventoryPage() {
                 </Badge>
               </td>
               <td className="px-4 py-3 text-right whitespace-nowrap">
-                {canDoTxn && (
-                  <button
-                    className="mr-3 text-slate-500 hover:text-indigo-600"
-                    title="Nhập / xuất kho"
-                    onClick={() => setTxnFor(i)}
-                  >
-                    <ArrowDownUp size={16} />
-                  </button>
-                )}
                 {canManageIngredient && (
                   <>
                     <button
@@ -214,14 +206,13 @@ export default function InventoryPage() {
           }}
         />
       )}
-      {txnFor && (
-        <TxnForm
-          ingredient={txnFor}
+      {openImport && (
+        <ImportReceiptModal
           companyId={companyId}
           branchId={branchId}
-          onClose={() => setTxnFor(null)}
-          onSaved={() => {
-            setTxnFor(null)
+          onClose={() => setOpenImport(false)}
+          onImported={() => {
+            setOpenImport(false)
             void load()
           }}
         />
@@ -313,9 +304,6 @@ function IngredientForm({
           <Input label="Tồn tối thiểu" type="number" value={f.minimum_stock} onChange={(e) => set('minimum_stock', e.target.value)} />
           <Input label="Giá vốn" type="number" value={f.cost_price} onChange={(e) => set('cost_price', e.target.value)} />
         </div>
-        {ingredient && (
-          <p className="text-xs text-slate-400">Tồn hiện tại thay đổi qua chức năng nhập/xuất kho.</p>
-        )}
         <Input label="Ghi chú" value={f.note} onChange={(e) => set('note', e.target.value)} />
         <ErrorText>{err}</ErrorText>
         <div className="flex justify-end gap-2">
@@ -331,74 +319,101 @@ function IngredientForm({
   )
 }
 
-function TxnForm({
-  ingredient,
+function ImportReceiptModal({
   companyId,
   branchId,
   onClose,
-  onSaved,
+  onImported,
 }: {
-  ingredient: Ingredient
   companyId?: number
   branchId?: number
   onClose: () => void
-  onSaved: () => void
+  onImported: () => void
 }) {
-  const [type, setType] = useState<StockTxnType>('PURCHASE')
-  const [quantity, setQuantity] = useState('')
-  const [note, setNote] = useState('')
+  const [code, setCode] = useState('')
+  const [preview, setPreview] = useState<{ receipt_code: string; supplier_name: string; status: string; items: { ingredient_name?: string; unit?: string; quantity: number | string }[] } | null>(null)
   const [err, setErr] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
 
-  async function submit() {
-    setSaving(true)
-    setErr('')
+  async function lookup() {
+    if (!code.trim()) return
+    setLoading(true); setErr(''); setPreview(null)
     try {
-      const q = Number(quantity)
-      if (!q || q <= 0) throw new Error('Số lượng phải lớn hơn 0')
-      // Backend tu quy doi dau theo type (PURCHASE +, WASTE -...), luon gui quantity duong.
-      await inventoryApi.createTransaction(
-        { ingredientId: ingredient.id, type, quantity: q, note: note || undefined },
-        companyId,
-        branchId,
-      )
-      onSaved()
+      const r = await procurementApi.getReceiptByCode(code.trim(), companyId)
+      if (r.status === 'CONFIRMED') {
+        setErr('Phiếu này đã được nhập kho, không thể nhập lại.')
+        return
+      }
+      if (r.status === 'CANCELLED') {
+        setErr('Phiếu này đã bị hủy.')
+        return
+      }
+      setPreview(r)
     } catch (e) {
       setErr(errMsg(e))
     } finally {
-      setSaving(false)
+      setLoading(false)
+    }
+  }
+
+  async function doImport() {
+    setImporting(true); setErr('')
+    try {
+      await procurementApi.importByCode(code.trim(), companyId, branchId)
+      onImported()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setImporting(false)
     }
   }
 
   return (
-    <Modal open title={`Nhập / xuất kho · ${ingredient.ingredient_name}`} onClose={onClose}>
+    <Modal open title="Nhập kho từ phiếu nhập" onClose={onClose}>
       <div className="flex flex-col gap-3">
-        <p className="text-sm text-slate-500">
-          Tồn hiện tại: <b>{num(ingredient.current_stock)} {ingredient.unit}</b>
-        </p>
-        <Select label="Loại giao dịch" value={type} onChange={(e) => setType(e.target.value as StockTxnType)}>
-          {TXN_LABELS.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.sign} {t.label}
-            </option>
-          ))}
-        </Select>
-        <Input
-          label={`Số lượng (${ingredient.unit})`}
-          type="number"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
-        <Input label="Ghi chú" value={note} onChange={(e) => setNote(e.target.value)} />
-        <ErrorText>{err}</ErrorText>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? 'Đang lưu...' : 'Xác nhận'}
+        <div className="flex gap-2 items-end">
+          <Input
+            label="Mã phiếu nhập"
+            placeholder="VD: PN-1234567890"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && lookup()}
+            className="flex-1"
+          />
+          <Button variant="secondary" onClick={lookup} disabled={loading || !code.trim()}>
+            {loading ? 'Đang tìm...' : 'Tra cứu'}
           </Button>
         </div>
+        <ErrorText>{err}</ErrorText>
+        {preview && (
+          <>
+            <div className="text-sm space-y-1">
+              <div><span className="text-slate-500">Mã phiếu:</span> <b>{preview.receipt_code}</b></div>
+              <div><span className="text-slate-500">NCC:</span> {preview.supplier_name}</div>
+            </div>
+            <Table headers={['Nguyên liệu', 'ĐVT', 'SL']}>
+              {preview.items.map((it, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 font-medium text-slate-800 dark:text-slate-200">{it.ingredient_name}</td>
+                  <td className="px-4 py-2 text-slate-500">{it.unit}</td>
+                  <td className="px-4 py-2">{num(it.quantity)}</td>
+                </tr>
+              ))}
+            </Table>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={onClose}>Hủy</Button>
+              <Button onClick={doImport} disabled={importing}>
+                {importing ? 'Đang nhập...' : 'Xác nhận nhập kho'}
+              </Button>
+            </div>
+          </>
+        )}
+        {!preview && !err && (
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={onClose}>Đóng</Button>
+          </div>
+        )}
       </div>
     </Modal>
   )

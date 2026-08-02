@@ -87,6 +87,22 @@ exports.confirmReceipt = async (id, companyId, staffId) => {
   return exports.getReceipt(id, companyId);
 };
 
+exports.getReceiptByCode = async (code, companyId) => {
+  const receipt = await repo.findReceiptByCode(code, companyId);
+  if (!receipt) throw new NotFound("Không tìm thấy phiếu nhập với mã này");
+  const items = await repo.findReceiptItems(receipt.id);
+  return { ...receipt, items };
+};
+
+exports.importReceiptByCode = async (code, companyId, branchId, staffId) => {
+  const receipt = await repo.findReceiptByCode(code, companyId);
+  if (!receipt) throw new NotFound("Không tìm thấy phiếu nhập với mã này");
+  const result = await repo.importReceipt(receipt.id, companyId, branchId, staffId);
+  if (result.error === "ALREADY_IMPORTED") throw new BadRequest("Phiếu này đã được nhập kho, không thể nhập lại");
+  if (result.error === "CANCELLED") throw new BadRequest("Phiếu này đã bị hủy");
+  return { ...result, receipt: await exports.getReceipt(receipt.id, companyId) };
+};
+
 exports.cancelReceipt = async (id, companyId) => {
   const existing = await repo.findReceiptById(id, companyId);
   if (!existing) throw new NotFound("Không tìm thấy phiếu nhập");

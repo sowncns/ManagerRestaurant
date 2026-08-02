@@ -27,6 +27,8 @@ router.delete("/suppliers/:id", managerOnly, controller.deleteSupplier);
 
 // ---- Phieu nhap kho ----
 router.get("/receipts", staffRead, controller.listReceipts);
+router.get("/receipts/by-code/:code", staffRead, controller.getReceiptByCode);
+router.post("/receipts/import-by-code", managerOnly, controller.importReceiptByCode);
 router.get("/receipts/:id", staffRead, controller.getReceipt);
 router.post("/receipts", managerOnly, validate(createReceiptSchema), controller.createReceipt);
 router.post("/receipts/:id/confirm", managerOnly, controller.confirmReceipt);

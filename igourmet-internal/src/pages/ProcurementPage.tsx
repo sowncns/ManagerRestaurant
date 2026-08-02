@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Power, Eye, Check, X } from 'lucide-react'
+import { Plus, Pencil, Power, Eye, Check, X, Printer, Mail } from 'lucide-react'
 import {
   procurementApi,
   type Supplier,
@@ -337,10 +337,42 @@ function ReceiptsTab({ companyId }: { companyId?: number }) {
 function ReceiptDetail({ id, companyId, onClose }: { id: number; companyId?: number; onClose: () => void }) {
   const [receipt, setReceipt] = useState<(Receipt & { items: ReceiptItem[] }) | null>(null)
   const [err, setErr] = useState('')
+  const [emailing, setEmailing] = useState(false)
 
   useEffect(() => {
     procurementApi.getReceipt(id, companyId).then(setReceipt).catch((e) => setErr(errMsg(e)))
   }, [id, companyId])
+
+  function printReceipt() {
+    if (!receipt) return
+    const rows = receipt.items.map((it, i) =>
+      `<tr><td style="border:1px solid #ddd;padding:6px">${i + 1}</td><td style="border:1px solid #ddd;padding:6px">${it.ingredient_name}</td><td style="border:1px solid #ddd;padding:6px">${it.unit}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">${num(it.quantity)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">${num(it.unit_price)}₫</td><td style="border:1px solid #ddd;padding:6px;text-align:right">${num(it.line_amount ?? 0)}₫</td></tr>`
+    ).join('')
+    const html = `<html><head><title>Phiếu nhập ${receipt.receipt_code}</title><style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th{border:1px solid #ddd;padding:6px;background:#f5f5f5;text-align:left}</style></head><body>
+      <h2>PHIẾU NHẬP KHO</h2>
+      <p><b>Mã phiếu:</b> ${receipt.receipt_code} &nbsp; <b>Ngày:</b> ${receipt.receipt_date?.slice(0, 10)}</p>
+      <p><b>NCC:</b> ${receipt.supplier_name} &nbsp; <b>Chi nhánh:</b> ${receipt.branch_name || '—'}</p>
+      ${receipt.note ? `<p><b>Ghi chú:</b> ${receipt.note}</p>` : ''}
+      <table><thead><tr><th>STT</th><th>Nguyên liệu</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>${rows}</tbody></table>
+      <p style="text-align:right;font-weight:bold;margin-top:12px">Tổng: ${num(receipt.total_amount)}₫</p>
+      <script>window.print()</script></body></html>`
+    const w = window.open('', '_blank')
+    w?.document.write(html)
+    w?.document.close()
+  }
+
+  async function emailSupplier() {
+    if (!receipt) return
+    setEmailing(true)
+    try {
+      await api.post('/internal/procurement/receipts/' + receipt.id + '/email', { companyId })
+      alert('Đã gửi email cho NCC thành công!')
+    } catch (e) {
+      alert(errMsg(e))
+    } finally {
+      setEmailing(false)
+    }
+  }
 
   return (
     <Modal open title={`Phiếu nhập ${receipt?.receipt_code ?? ''}`} onClose={onClose}>
@@ -371,7 +403,15 @@ function ReceiptDetail({ id, companyId, onClose }: { id: number; companyId?: num
             ))}
           </Table>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={printReceipt}>
+                <Printer size={16} /> In phiếu
+              </Button>
+              <Button variant="secondary" onClick={emailSupplier} disabled={emailing}>
+                <Mail size={16} /> {emailing ? 'Đang gửi...' : 'Gửi email NCC'}
+              </Button>
+            </div>
             <Button variant="secondary" onClick={onClose}>Đóng</Button>
           </div>
         </div>
