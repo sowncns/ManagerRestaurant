@@ -98,12 +98,14 @@ export const inventoryApi = {
     const { data } = await api.post('/internal/inventory/transactions', { ...body, companyId, branchId }, withCompanyAndBranch(companyId, branchId))
     return data
   },
-  async transactions(companyId?: number, branchId?: number, ingredientId?: number): Promise<StockTxn[]> {
+  async transactions(companyId?: number, branchId?: number, ingredientId?: number, page = 1, limit = 50) {
+    const extra: Record<string, unknown> = { page, limit }
+    if (ingredientId) extra.ingredientId = ingredientId
     const { data } = await api.get(
       '/internal/inventory/transactions',
-      withCompanyAndBranch(companyId, branchId, ingredientId ? { ingredientId } : {}),
+      withCompanyAndBranch(companyId, branchId, extra),
     )
-    return data.transactions
+    return { transactions: data.transactions as StockTxn[], pagination: data.pagination as { page: number; limit: number; total: number; totalPages: number } }
   },
   async getRecipe(menuItemId: number, companyId?: number): Promise<RecipeLine[]> {
     const { data } = await api.get(`/internal/inventory/recipes/menu-item/${menuItemId}`, withCompanyAndBranch(companyId))

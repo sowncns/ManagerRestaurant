@@ -47,6 +47,8 @@ export default function InventoryTransactionsPage() {
   const [filterIngredient, setFilterIngredient] = useState<number | undefined>(undefined)
   const [filterType, setFilterType] = useState<StockTxnType | ''>('')
   const [err, setErr] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
   useEffect(() => {
     if (!isSuperAdmin) return
@@ -65,14 +67,16 @@ export default function InventoryTransactionsPage() {
     inventoryApi.listIngredients(companyId, branchId).then(setIngredients).catch(() => {})
   }, [ready, companyId, branchId])
 
+  useEffect(() => { setPage(1) }, [companyId, branchId, filterIngredient])
+
   useEffect(() => {
     if (!ready) return
     setErr('')
     inventoryApi
-      .transactions(companyId, branchId, filterIngredient)
-      .then(setTxns)
+      .transactions(companyId, branchId, filterIngredient, page)
+      .then(({ transactions, pagination }) => { setTxns(transactions); setTotalPages(pagination?.totalPages || 1) })
       .catch((e) => setErr(errMsg(e)))
-  }, [ready, companyId, branchId, filterIngredient])
+  }, [ready, companyId, branchId, filterIngredient, page])
 
   const visible = useMemo(() => {
     if (!filterType) return txns
@@ -134,6 +138,15 @@ export default function InventoryTransactionsPage() {
       {!ready ? (
         <p className="py-10 text-center text-sm text-slate-400">Vui lòng chọn công ty và chi nhánh để xem lịch sử kho.</p>
       ) : (
+        <>
+        {totalPages > 1 && (
+          <div className="mb-3 flex items-center gap-2">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded border px-3 py-1 text-sm disabled:opacity-40">← Trước</button>
+            <span className="text-sm text-slate-600">Trang {page} / {totalPages}</span>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="rounded border px-3 py-1 text-sm disabled:opacity-40">Sau →</button>
+          </div>
+        )}
+
         <Table headers={['Thời gian', 'Nguyên liệu', 'Loại', 'Số lượng', 'Trước', 'Sau', 'Người thực hiện', 'Ghi chú']}>
           {visible.map((t, idx) => {
             const txType = (t.transaction_type || t.type) as string
@@ -161,6 +174,7 @@ export default function InventoryTransactionsPage() {
             <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Không có dữ liệu</td></tr>
           )}
         </Table>
+        </>
       )}
     </div>
   )

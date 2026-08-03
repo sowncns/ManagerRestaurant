@@ -4,7 +4,7 @@
 const pool = require("../../../config/db");
 
 const BASE_SELECT = `
-  SELECT e.employee_id AS id, e.full_name, e.username, e.phone, e.status,
+  SELECT e.employee_id, e.employee_id AS id, e.full_name, e.username, e.phone, e.status,
          e.company_id, e.branch_id, e.role_id, e.kitchen_type_id, e.supabase_uid,
          e.created_at, e.updated_at,
          r.code AS role, r.name AS role_name,
@@ -34,7 +34,7 @@ exports.create = ({ full_name, username, phone, password_hash, role_id, company_
     .query(
       `INSERT INTO employees (full_name, username, phone, password_hash, role_id, company_id, branch_id, kitchen_type_id, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'ACTIVE'))
-       RETURNING employee_id AS id, full_name, username, phone, role_id, company_id, branch_id, kitchen_type_id, status, created_at`,
+       RETURNING employee_id, employee_id AS id, full_name, username, phone, role_id, company_id, branch_id, kitchen_type_id, status, created_at`,
       [full_name, username, phone, password_hash, role_id, company_id, branch_id, kitchen_type_id ?? null, status]
     )
     .then((r) => r.rows[0]);
@@ -53,7 +53,7 @@ exports.update = (id, fields) => {
     .query(
       `UPDATE employees SET ${cols.join(", ")}, updated_at = NOW()
        WHERE employee_id = $${values.length}
-       RETURNING employee_id AS id, full_name, username, phone, role_id, company_id, branch_id, kitchen_type_id, status`,
+       RETURNING employee_id, employee_id AS id, full_name, username, phone, role_id, company_id, branch_id, kitchen_type_id, status`,
       values
     )
     .then((r) => r.rows[0]);

@@ -8,21 +8,25 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
   // Filters
   const [actionFilter, setActionFilter] = useState('')
   const [entityFilter, setEntityFilter] = useState('')
   const [search, setSearch] = useState('')
 
-  async function load() {
+  async function load(p = page) {
     setLoading(true)
     setErr('')
     try {
-      const data = await auditApi.list({
+      const { logs: data, pagination } = await auditApi.list({
         action: actionFilter || undefined,
         entity: entityFilter || undefined,
+        page: p,
       })
       setLogs(data)
+      if (pagination) setTotalPages(pagination.totalPages || 1)
     } catch (e) {
       setErr(errMsg(e))
     } finally {
@@ -30,9 +34,8 @@ export default function AuditLogsPage() {
     }
   }
 
-  useEffect(() => {
-    void load()
-  }, [actionFilter, entityFilter])
+  useEffect(() => { setPage(1) }, [actionFilter, entityFilter])
+  useEffect(() => { void load(page) }, [actionFilter, entityFilter, page])
 
   const filteredLogs = logs.filter((log) => {
     if (!search) return true
@@ -85,6 +88,14 @@ export default function AuditLogsPage() {
           <Input placeholder="VD: order, menu_item..." value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} />
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mb-3 flex items-center gap-2">
+          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded border px-3 py-1 text-sm disabled:opacity-40">← Trước</button>
+          <span className="text-sm text-slate-600">Trang {page} / {totalPages}</span>
+          <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="rounded border px-3 py-1 text-sm disabled:opacity-40">Sau →</button>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl bg-white shadow-sm border border-slate-200">
         <div className="overflow-x-auto">

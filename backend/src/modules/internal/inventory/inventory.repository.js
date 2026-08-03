@@ -209,29 +209,34 @@ exports.applyStockChange = async ({ ingredientId, companyId, branchId, delta, ty
   }
 };
 
-exports.findTransactions = (companyId, branchId, { ingredientId, type, limit = 100 } = {}) => {
+exports.findTransactions = async (companyId, branchId, { ingredientId, type, limit = 50, offset = 0 } = {}) => {
   const values = [companyId];
   let where = "WHERE i.company_id = $1";
-  
+
   if (branchId) {
     values.push(branchId);
     where += ` AND t.branch_id = $${values.length}`;
   }
-  
+
   if (ingredientId) { values.push(ingredientId); where += ` AND t.ingredient_id = $${values.length}`; }
   if (type) { values.push(type); where += ` AND t.transaction_type = $${values.length}`; }
-  values.push(limit);
-  return pool
-    .query(
-      `SELECT t.*, t.inventory_transaction_id AS id, i.ingredient_code, i.ingredient_name, i.unit, e.full_name AS created_by_name
-       FROM inventory_transactions t
-       JOIN ingredients i ON i.ingredient_id = t.ingredient_id
-       LEFT JOIN employees e ON e.employee_id = t.created_by
-       ${where}
-       ORDER BY t.created_at DESC LIMIT $${values.length}`,
-      values
-    )
-    .then((r) => r.rows);
+
+  const countR = await pool.query(
+    `SELECT COUNT(*) FROM inventory_transactions t JOIN ingredients i ON i.ingredient_id = t.ingredient_id ${where}`, values
+  );
+  const total = Number(countR.rows[0].count);
+
+  values.push(limit, offset);
+  const rows = await pool.query(
+    `SELECT t.*, t.inventory_transaction_id AS id, i.ingredient_code, i.ingredient_name, i.unit, e.full_name AS created_by_name
+     FROM inventory_transactions t
+     JOIN ingredients i ON i.ingredient_id = t.ingredient_id
+     LEFT JOIN employees e ON e.employee_id = t.created_by
+     ${where}
+     ORDER BY t.created_at DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
+    values
+  );
+  return { rows: rows.rows, total };
 };
 
 // Lay danh sach mon cua 1 order (de tinh nhu cau nguyen lieu)

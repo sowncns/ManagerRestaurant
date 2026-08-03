@@ -18,8 +18,12 @@ export const auditApi = {
     entity?: string
     from_date?: string
     to_date?: string
-  }): Promise<AuditLog[]> {
-    const { data } = await api.get('/internal/audit-logs', { params })
-    return data.logs ?? data
+    page?: number
+    limit?: number
+  }) {
+    const { data } = await api.get('/internal/audit-logs', { params: { limit: 50, ...params } })
+    const logs: AuditLog[] = data.logs ?? data
+    const pagination = data.pagination as { page: number; limit: number; total: number; totalPages: number } | undefined
+    return { logs, pagination }
   },
 }

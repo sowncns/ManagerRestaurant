@@ -95,14 +95,21 @@ exports.createStockTransaction = asyncHandler(async (req, res) => {
 });
 
 exports.getTransactions = asyncHandler(async (req, res) => {
-  const { ingredientId, type, limit } = req.query;
+  const { ingredientId, type } = req.query;
   const { cId, bId } = getInventoryContext(req);
-  const transactions = await service.getTransactions(cId, bId, {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 500);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const { rows: transactions, total } = await service.getTransactions(cId, bId, {
     ingredientId: ingredientId ? Number(ingredientId) : undefined,
     type,
-    limit: limit ? Math.min(Number(limit), 500) : 100,
+    limit,
+    offset: (page - 1) * limit,
   });
-  res.json({ message: "Lấy lịch sử kho thành công", transactions });
+  res.json({
+    message: "Lấy lịch sử kho thành công",
+    transactions,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
 });
 
 // ---------- Tinh nguyen lieu cho order ----------
