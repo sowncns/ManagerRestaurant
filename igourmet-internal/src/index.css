@@ -3,11 +3,6 @@
 
 :root {
   font-family: 'Inter', system-ui, sans-serif;
-  color-scheme: dark;
-}
-
-html {
-  color-scheme: dark;
 }
 
 html, body {
@@ -16,19 +11,8 @@ html, body {
 
 body {
   margin: 0;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-
-.dark .bg-white,
-.dark .bg-slate-50,
-.dark .bg-slate-100 {
-  background-color: #C0C0C0 !important;
-}
-
-.dark .border-slate-200,
-.dark .border-slate-300 {
-  border-color: #9a9a9a !important;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .dark .text-slate-900 {
