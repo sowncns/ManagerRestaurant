@@ -20,16 +20,15 @@ body {
   color: #e2e8f0;
 }
 
-.dark .bg-white {
-  background-color: #1f2937 !important;
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: #C0C0C0 !important;
 }
 
-.dark .bg-slate-50 {
-  background-color: #111827 !important;
-}
-
-.dark .border-slate-200 {
-  border-color: #334155 !important;
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #9a9a9a !important;
 }
 
 .dark .text-slate-900 {
