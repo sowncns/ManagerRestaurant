@@ -36,6 +36,7 @@ export interface RecipeLine {
 
 export type StockTxnType =
   | 'PURCHASE'
+  | 'SALE_CONSUMPTION'
   | 'INTERNAL_TRANSFER'
   | 'RETURN_SUPPLIER'
   | 'WASTE'
@@ -46,9 +47,17 @@ export interface StockTxn {
   transaction_id?: number
   id?: number
   ingredient_id: number
+  ingredient_code?: string
   ingredient_name?: string
+  unit?: string
+  transaction_type?: string
   type: StockTxnType
   quantity: number | string
+  stock_before?: number | string
+  stock_after?: number | string
+  reference_type?: string | null
+  reference_id?: number | null
+  created_by_name?: string | null
   note: string | null
   created_at: string
 }

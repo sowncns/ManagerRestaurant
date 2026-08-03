@@ -16,6 +16,7 @@ import EmployeesPage from './pages/EmployeesPage'
 import BranchesPage from './pages/BranchesPage'
 import SectionsPage from './pages/SectionsPage'
 import InventoryPage from './pages/InventoryPage'
+import InventoryTransactionsPage from './pages/InventoryTransactionsPage'
 import AuditLogsPage from './pages/AuditLogsPage'
 import ProcurementPage from './pages/ProcurementPage'
 import CompaniesPage from './pages/CompaniesPage'
@@ -77,6 +78,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={ROLE_GROUPS.INVENTORY} />}>
             <Route path="inventory" element={<InventoryPage />} />
+            <Route path="inventory-transactions" element={<InventoryTransactionsPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={ROLE_GROUPS.MANAGERS} />}>
