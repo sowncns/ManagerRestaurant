@@ -91,7 +91,7 @@ export const inventoryApi = {
     await api.delete(`/internal/inventory/ingredients/${id}`, withCompanyAndBranch(companyId, branchId))
   },
   async createTransaction(
-    body: { ingredientId: number; type: StockTxnType; quantity: number; note?: string },
+    body: { ingredientId: number; type: StockTxnType; quantity?: number; actualStock?: number; note?: string },
     companyId?: number,
     branchId?: number,
   ): Promise<unknown> {

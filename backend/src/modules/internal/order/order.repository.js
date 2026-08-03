@@ -296,13 +296,15 @@ exports.findKitchenHistory = (companyId, branchId, kitchenTypeId = null, limit =
       `SELECT oi.order_item_id AS id, oi.order_id, oi.menu_item_id, oi.item_name,
               oi.quantity, oi.kitchen_status, oi.note, oi.created_at, oi.ready_at,
               o.order_code, dt.table_number,
-              mi.kitchen_type_id, kt.code AS kitchen_type_code, kt.name AS kitchen_type_name
+              mi.kitchen_type_id, kt.code AS kitchen_type_code, kt.name AS kitchen_type_name,
+              e.full_name AS waiter_name
        FROM order_items oi
        JOIN orders o ON o.order_id = oi.order_id
        JOIN dining_tables dt ON dt.table_id = o.table_id
        LEFT JOIN menu_items mi ON mi.menu_item_id = oi.menu_item_id
        LEFT JOIN kitchen_types kt ON kt.kitchen_type_id = mi.kitchen_type_id
-       WHERE o.company_id = $1 AND o.branch_id = $2 
+       LEFT JOIN employees e ON e.employee_id = o.waiter_id
+       WHERE o.company_id = $1 AND o.branch_id = $2
          AND oi.kitchen_status IN ('READY', 'SERVED')
          AND oi.created_at >= NOW() - INTERVAL '24 HOURS'
          AND ($3::int IS NULL OR mi.kitchen_type_id = $3)
@@ -320,12 +322,14 @@ exports.findKitchenQueue = (companyId, branchId, kitchenTypeId = null) =>
       `SELECT oi.order_item_id AS id, oi.order_id, oi.menu_item_id, oi.item_name,
               oi.quantity, oi.kitchen_status, oi.note, oi.created_at, oi.ready_at,
               o.order_code, dt.table_number,
-              mi.kitchen_type_id, kt.code AS kitchen_type_code, kt.name AS kitchen_type_name
+              mi.kitchen_type_id, kt.code AS kitchen_type_code, kt.name AS kitchen_type_name,
+              e.full_name AS waiter_name
        FROM order_items oi
        JOIN orders o ON o.order_id = oi.order_id
        JOIN dining_tables dt ON dt.table_id = o.table_id
        LEFT JOIN menu_items mi ON mi.menu_item_id = oi.menu_item_id
        LEFT JOIN kitchen_types kt ON kt.kitchen_type_id = mi.kitchen_type_id
+       LEFT JOIN employees e ON e.employee_id = o.waiter_id
        WHERE o.company_id = $1 AND o.branch_id = $2 AND o.status = ANY($3::text[])
          AND oi.kitchen_status IN ('WAITING','READY')
          AND ($4::int IS NULL OR mi.kitchen_type_id = $4)

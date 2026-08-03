@@ -469,19 +469,59 @@ function AdjustStockModal({
   const [saving, setSaving] = useState(false)
 
   const currentStock = Number(ingredient.current_stock || 0)
+  const directionMap: Record<StockTxnType, number | null> = {
+    PURCHASE: 1,
+    INTERNAL_TRANSFER: -1,
+    RETURN_SUPPLIER: -1,
+    WASTE: -1,
+    STOCK_ADJUSTMENT: null,
+    STOCK_COUNT: null,
+  }
 
   async function submit() {
     const qty = Number(quantity)
-    if (!qty) { setErr('Vui lòng nhập số lượng'); return }
-    if (!note.trim()) { setErr('Vui lòng nhập lý do'); return }
+    if (quantity.trim() === '' || Number.isNaN(qty)) {
+      setErr('Vui lòng nhập số lượng')
+      return
+    }
+
+    if (txnType === 'STOCK_ADJUSTMENT') {
+      if (qty === 0) {
+        setErr('Điều chỉnh cần số lượng khác 0')
+        return
+      }
+    } else if (txnType === 'STOCK_COUNT') {
+      if (qty < 0) {
+        setErr('Tồn thực tế phải là số không âm')
+        return
+      }
+    } else {
+      if (qty <= 0) {
+        setErr('Số lượng phải lớn hơn 0')
+        return
+      }
+    }
+
+    if (!note.trim()) {
+      setErr('Vui lòng nhập lý do')
+      return
+    }
+
     setSaving(true)
     setErr('')
     try {
-      await inventoryApi.createTransaction(
-        { ingredientId: ingredient.id, type: txnType, quantity: qty, note: note.trim() },
-        companyId,
-        branchId,
-      )
+      const requestBody: { ingredientId: number; type: StockTxnType; quantity?: number; actualStock?: number; note?: string } = {
+        ingredientId: ingredient.id,
+        type: txnType,
+        note: note.trim(),
+      }
+      if (txnType === 'STOCK_COUNT') {
+        requestBody.actualStock = qty
+      } else {
+        requestBody.quantity = qty
+      }
+
+      await inventoryApi.createTransaction(requestBody, companyId, branchId)
       onSaved()
     } catch (e) {
       setErr(errMsg(e))
@@ -490,7 +530,17 @@ function AdjustStockModal({
     }
   }
 
-  const previewStock = quantity ? currentStock + Number(quantity) : null
+  const qty = quantity.trim() === '' ? null : Number(quantity)
+  const previewStock = qty === null ? null :
+    txnType === 'STOCK_COUNT' ? qty :
+    txnType === 'STOCK_ADJUSTMENT' ? currentStock + qty :
+    currentStock + (directionMap[txnType] ?? 0) * qty
+
+  const quantityLabel = txnType === 'STOCK_ADJUSTMENT'
+    ? `Số lượng (${ingredient.unit}) — số âm = giảm, số dương = tăng`
+    : txnType === 'STOCK_COUNT'
+      ? `Tồn thực tế (${ingredient.unit})`
+      : `Số lượng (${ingredient.unit})`
 
   return (
     <Modal open title={`Điều chỉnh · ${ingredient.ingredient_name}`} onClose={onClose}>
@@ -510,11 +560,11 @@ function AdjustStockModal({
           ))}
         </Select>
         <Input
-          label={`Số lượng (${ingredient.unit}) — số âm = giảm, số dương = tăng`}
+          label={quantityLabel}
           type="number"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
-          placeholder="VD: -5 hoặc 10"
+          placeholder={txnType === 'STOCK_ADJUSTMENT' ? 'VD: -5 hoặc 10' : 'VD: 5'}
         />
         <Input label="Lý do *" value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: Kiểm kê cuối ngày, hao hụt do hỏng..." />
         <ErrorText>{err}</ErrorText>

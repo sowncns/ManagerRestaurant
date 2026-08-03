@@ -94,6 +94,7 @@ export interface KitchenQueueItem {
   kitchen_type_id: number | null
   kitchen_type_code: string | null
   kitchen_type_name: string | null
+  waiter_name: string | null
 }
 
 // Gia tri QR in tren phieu tung mon. Bep quet lai chuoi nay de bao nau xong.

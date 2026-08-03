@@ -15,10 +15,12 @@ import {
   Trash2,
   ChevronDown,
   CalendarCheck,
+  FileText,
 } from 'lucide-react'
 import { tablesApi, type DiningTable, type Section, type TableStatus } from '../api/tables'
 import { reservationsApi, type ReservationAlert, type Reservation } from '../api/reservations'
 import { ordersApi } from '../api/orders'
+import { checkoutApi, type VatInfo } from '../api/checkout'
 import { errMsg } from '../lib/errMsg'
 import { Button, Modal, Input, Select, ErrorText, Badge } from '../components/ui'
 import { cn } from '../lib/cn'
@@ -690,7 +692,7 @@ function TableActionModal({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [mode, setMode] = useState<'menu' | 'hold' | 'open'>('menu')
+  const [mode, setMode] = useState<'menu' | 'hold' | 'open' | 'vat'>('menu')
   const [busy, setBusy] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -700,6 +702,13 @@ function TableActionModal({
   const [time, setTime] = useState('')
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
+  // VAT info state
+  const [vatCompany, setVatCompany] = useState('')
+  const [vatTax, setVatTax] = useState('')
+  const [vatAddress, setVatAddress] = useState('')
+  const [vatEmail, setVatEmail] = useState('')
+  const [vatSaved, setVatSaved] = useState(false)
+  const [vatLoading, setVatLoading] = useState(false)
 
   const openTable = async () => {
     setBusy(true)
@@ -731,6 +740,48 @@ function TableActionModal({
         note: note,
       })
       onSaved()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openVatMode = async () => {
+    setMode('vat')
+    setVatLoading(true)
+    try {
+      const existing = await checkoutApi.getTableVat(table.id)
+      if (existing) {
+        setVatCompany(existing.companyName ?? '')
+        setVatTax(existing.taxCode ?? '')
+        setVatAddress(existing.address ?? '')
+        setVatEmail(existing.email ?? '')
+      }
+    } catch {
+      // ignore — form will be blank if no prior data
+    } finally {
+      setVatLoading(false)
+    }
+  }
+
+  const saveVat = async () => {
+    if (!vatTax.trim() || !vatCompany.trim()) {
+      setErr('Vui lòng nhập Tên công ty và Mã số thuế.')
+      return
+    }
+    setBusy(true)
+    setErr('')
+    try {
+      const payload: VatInfo = {
+        companyName: vatCompany.trim(),
+        taxCode: vatTax.trim(),
+        address: vatAddress.trim(),
+        email: vatEmail.trim(),
+      }
+      await checkoutApi.saveTableVat(table.id, payload)
+      setVatSaved(true)
+      setTimeout(() => setMode('menu'), 1200)
     } catch (e) {
       setErr(errMsg(e))
     } finally {
@@ -792,7 +843,7 @@ function TableActionModal({
             <button
               disabled={busy || table.status === 'SERVING'}
               onClick={() => setMode('open')}
-              className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold hover:bg-emerald-100 cursor-pointer select-none"
+              className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold hover:bg-emerald-100 cursor-pointer select-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <DoorOpen size={24} />
               <span>Mở Bàn Vãng Lai</span>
@@ -805,6 +856,17 @@ function TableActionModal({
               <BookmarkPlus size={24} />
               <span>Giữ Bàn / Đặt Trước</span>
             </button>
+
+            {/* VAT button — chỉ hiển thị khi bàn đang phục vụ hoặc chờ thanh toán */}
+            {(table.status === 'SERVING' || table.status === 'WAIT_PAYMENT') && (
+              <button
+                onClick={() => void openVatMode()}
+                className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-violet-300 bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 font-bold hover:bg-violet-100 cursor-pointer select-none"
+              >
+                <FileText size={20} />
+                <span>Xuất Hóa Đơn VAT (Hóa Đơn Đỏ)</span>
+              </button>
+            )}
           </div>
         ) : mode === 'hold' ? (
           <div className="space-y-3">
@@ -827,7 +889,7 @@ function TableActionModal({
               </Button>
             </div>
           </div>
-        ) : (
+        ) : mode === 'open' ? (
           <div className="space-y-3">
             <h4 className="font-bold text-slate-800 dark:text-slate-200">Mở bàn cho khách vãng lai</h4>
             <Input label="Số lượng khách" type="number" value={walkinGuests} onChange={(e) => setWalkinGuests(e.target.value)} autoFocus />
@@ -838,6 +900,75 @@ function TableActionModal({
               </Button>
               <Button onClick={openTable} loading={busy}>
                 Xác nhận mở bàn
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* VAT Form */
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <FileText size={18} className="text-violet-600" />
+              <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Thông Tin Xuất Hóa Đơn VAT</h4>
+            </div>
+
+            <div className="rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 p-3 text-xs text-violet-700 dark:text-violet-300">
+              Thông tin này sẽ được gắn với bill của bàn <strong>{table.table_name || table.table_number}</strong> và chuyển cho thu ngân xuất hóa đơn.
+            </div>
+
+            {vatLoading ? (
+              <div className="flex justify-center py-6">
+                <div className="w-6 h-6 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
+              </div>
+            ) : (
+              <>
+                <Input
+                  label="Tên công ty *"
+                  placeholder="VD: Công ty TNHH ABC"
+                  value={vatCompany}
+                  onChange={(e) => setVatCompany(e.target.value)}
+                  autoFocus
+                />
+                <Input
+                  label="Mã số thuế *"
+                  placeholder="VD: 0123456789"
+                  value={vatTax}
+                  onChange={(e) => setVatTax(e.target.value)}
+                />
+                <Input
+                  label="Địa chỉ công ty"
+                  placeholder="VD: 123 Nguyễn Văn A, Q.1, TP.HCM"
+                  value={vatAddress}
+                  onChange={(e) => setVatAddress(e.target.value)}
+                />
+                <Input
+                  label="Email nhận hóa đơn"
+                  type="email"
+                  placeholder="VD: ketoan@congtyabc.vn"
+                  value={vatEmail}
+                  onChange={(e) => setVatEmail(e.target.value)}
+                />
+              </>
+            )}
+
+            <ErrorText>{err}</ErrorText>
+
+            {vatSaved && (
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+                <Check size={14} /> Đã lưu thông tin VAT thành công!
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => { setMode('menu'); setErr(''); setVatSaved(false) }}>
+                Quay lại
+              </Button>
+              <Button
+                onClick={saveVat}
+                loading={busy}
+                disabled={vatLoading || vatSaved}
+                className="bg-violet-600 hover:bg-violet-700 text-white border-violet-600"
+              >
+                <FileText size={14} /> Lưu thông tin VAT
               </Button>
             </div>
           </div>

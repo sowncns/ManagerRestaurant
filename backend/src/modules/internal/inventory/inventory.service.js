@@ -87,10 +87,14 @@ exports.createStockTransaction = async (companyId, branchId, createdBy, data) =>
     delta = Number(actualStock) - (Number(ing.current_stock) || 0);
     if (delta === 0) return { message: "Tồn kho khớp, không cần điều chỉnh", transaction: null };
   } else if (type === "STOCK_ADJUSTMENT") {
-    if (!quantity || Number(quantity) === 0) throw new BadRequest("Điều chỉnh cần quantity khác 0 (âm hoặc dương)");
+    if (quantity === undefined || quantity === null || Number(quantity) === 0) {
+      throw new BadRequest("Điều chỉnh cần quantity khác 0 (âm hoặc dương)");
+    }
     delta = Number(quantity);
   } else {
-    if (!quantity || Number(quantity) <= 0) throw new BadRequest("quantity phải > 0");
+    if (quantity === undefined || quantity === null || Number(quantity) <= 0) {
+      throw new BadRequest("quantity phải > 0");
+    }
     delta = direction * Number(quantity);
   }
 

@@ -39,6 +39,7 @@ async function printTickets(items: KitchenQueueItem[]) {
     .tbl { font-size: 20px; font-weight: 800; }
     .name { font-size: 16px; font-weight: 700; margin: 2px 0; }
     .qty { font-size: 15px; }
+    .meta { font-size: 12px; color: #333; margin: 2px 0; }
     .note { font-size: 12px; color: #444; font-style: italic; }
     .code { font-size: 11px; color: #666; margin-top: 2px; letter-spacing: 1px; }
     .qr { width: 150px; height: 150px; }
@@ -50,6 +51,7 @@ async function printTickets(items: KitchenQueueItem[]) {
         <div class="tbl">${it.table_number}</div>
         <div class="name">${escapeHtml(it.item_name)}</div>
         <div class="qty">SL: ${it.quantity}${it.kitchen_type_name ? ' · ' + escapeHtml(it.kitchen_type_name) : ''}</div>
+        <div class="meta">${new Date(it.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}${it.waiter_name ? ' · ' + escapeHtml(it.waiter_name) : ''}</div>
         ${it.note ? `<div class="note">${escapeHtml(it.note)}</div>` : ''}
         <img class="qr" src="${dataUrl}" alt="QR" />
         ${barcodeUrl ? `<img class="barcode" src="${barcodeUrl}" alt="barcode" />` : ''}
