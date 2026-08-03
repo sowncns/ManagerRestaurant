@@ -471,6 +471,7 @@ function AdjustStockModal({
   const currentStock = Number(ingredient.current_stock || 0)
   const directionMap: Record<StockTxnType, number | null> = {
     PURCHASE: 1,
+    SALE_CONSUMPTION: -1,
     INTERNAL_TRANSFER: -1,
     RETURN_SUPPLIER: -1,
     WASTE: -1,
