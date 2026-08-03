@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, Power, FileInput } from 'lucide-react'
-import { inventoryApi, type Ingredient, type IngredientInput } from '../api/inventory'
+import { Plus, Pencil, Power, FileInput, ArrowUpDown } from 'lucide-react'
+import { inventoryApi, type Ingredient, type IngredientInput, type StockTxnType } from '../api/inventory'
 import { procurementApi } from '../api/procurement'
 import { api } from '../lib/api'
 import { errMsg } from '../lib/errMsg'
@@ -24,6 +24,7 @@ export default function InventoryPage() {
   const [list, setList] = useState<Ingredient[]>([])
   const [onlyLow, setOnlyLow] = useState(false)
   const [editing, setEditing] = useState<Ingredient | null>(null)
+  const [adjusting, setAdjusting] = useState<Ingredient | null>(null)
   const [openForm, setOpenForm] = useState(false)
   const [openImport, setOpenImport] = useState(false)
   const [err, setErr] = useState('')
@@ -167,6 +168,15 @@ export default function InventoryPage() {
                 </Badge>
               </td>
               <td className="px-4 py-3 text-right whitespace-nowrap">
+                {canDoTxn && (
+                  <button
+                    className="mr-3 text-slate-500 hover:text-blue-600"
+                    title="Điều chỉnh số lượng"
+                    onClick={() => setAdjusting(i)}
+                  >
+                    <ArrowUpDown size={16} />
+                  </button>
+                )}
                 {canManageIngredient && (
                   <>
                     <button
@@ -202,6 +212,18 @@ export default function InventoryPage() {
           onClose={() => setOpenForm(false)}
           onSaved={() => {
             setOpenForm(false)
+            void load()
+          }}
+        />
+      )}
+      {adjusting && (
+        <AdjustStockModal
+          ingredient={adjusting}
+          companyId={companyId}
+          branchId={branchId}
+          onClose={() => setAdjusting(null)}
+          onSaved={() => {
+            setAdjusting(null)
             void load()
           }}
         />
@@ -414,6 +436,92 @@ function ImportReceiptModal({
             <Button variant="secondary" onClick={onClose}>Đóng</Button>
           </div>
         )}
+      </div>
+    </Modal>
+  )
+}
+
+const ADJUST_TYPES: { value: StockTxnType; label: string }[] = [
+  { value: 'STOCK_ADJUSTMENT', label: 'Điều chỉnh' },
+  { value: 'WASTE', label: 'Hao hụt' },
+  { value: 'STOCK_COUNT', label: 'Kiểm kê' },
+  { value: 'PURCHASE', label: 'Nhập kho' },
+  { value: 'RETURN_SUPPLIER', label: 'Trả NCC' },
+]
+
+function AdjustStockModal({
+  ingredient,
+  companyId,
+  branchId,
+  onClose,
+  onSaved,
+}: {
+  ingredient: Ingredient
+  companyId?: number
+  branchId?: number
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [txnType, setTxnType] = useState<StockTxnType>('STOCK_ADJUSTMENT')
+  const [quantity, setQuantity] = useState('')
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const currentStock = Number(ingredient.current_stock || 0)
+
+  async function submit() {
+    const qty = Number(quantity)
+    if (!qty) { setErr('Vui lòng nhập số lượng'); return }
+    if (!note.trim()) { setErr('Vui lòng nhập lý do'); return }
+    setSaving(true)
+    setErr('')
+    try {
+      await inventoryApi.createTransaction(
+        { ingredientId: ingredient.id, type: txnType, quantity: qty, note: note.trim() },
+        companyId,
+        branchId,
+      )
+      onSaved()
+    } catch (e) {
+      setErr(errMsg(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const previewStock = quantity ? currentStock + Number(quantity) : null
+
+  return (
+    <Modal open title={`Điều chỉnh · ${ingredient.ingredient_name}`} onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <div className="rounded-lg bg-slate-50 p-3 text-sm">
+          <span className="text-slate-500">Tồn hiện tại:</span>{' '}
+          <b>{new Intl.NumberFormat('vi-VN').format(currentStock)} {ingredient.unit}</b>
+          {previewStock != null && (
+            <span className="ml-3">
+              → <b className={previewStock < 0 ? 'text-red-600' : 'text-green-600'}>{new Intl.NumberFormat('vi-VN').format(previewStock)} {ingredient.unit}</b>
+            </span>
+          )}
+        </div>
+        <Select label="Loại điều chỉnh" value={txnType} onChange={(e) => setTxnType(e.target.value as StockTxnType)}>
+          {ADJUST_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </Select>
+        <Input
+          label={`Số lượng (${ingredient.unit}) — số âm = giảm, số dương = tăng`}
+          type="number"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          placeholder="VD: -5 hoặc 10"
+        />
+        <Input label="Lý do *" value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: Kiểm kê cuối ngày, hao hụt do hỏng..." />
+        <ErrorText>{err}</ErrorText>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Hủy</Button>
+          <Button onClick={submit} disabled={saving}>{saving ? 'Đang lưu...' : 'Xác nhận'}</Button>
+        </div>
       </div>
     </Modal>
   )
