@@ -53,7 +53,7 @@ export default function AuditLogsPage() {
       <PageHeader 
         title="Nhật ký hệ thống" 
         action={
-          <Button onClick={load} disabled={loading} variant="secondary">
+          <Button onClick={() => load()} disabled={loading} variant="secondary">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Làm mới
           </Button>
         }
