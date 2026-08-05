@@ -225,9 +225,9 @@ const ProfileDrawer = ({ isOpen, onClose, openVoucherModal }: ProfileDrawerProps
                     <h3 className="text-[22px] font-bold mb-0.5">{userProfile?.full_name || "Khách hàng"}</h3>
                     <p className="text-white/90 text-sm font-medium">{currentRankText}</p>
                   </div>
-                  <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                  {/* <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
                     <QrCode className="w-5 h-5 text-white" />
-                  </div>
+                  </div> */}
                 </div>
 
                 <div className="space-y-2">
