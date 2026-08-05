@@ -10,6 +10,7 @@ import QRCode from 'qrcode'
 import { Button, Modal, Input, ErrorText, Badge } from './ui'
 
 function printInvoiceHtml(invoice: any) {
+  const isDebt = invoice.status === 'UNPAID'
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hóa Đơn</title>
   <style>
     @page { size: 58mm auto; margin: 4mm; }
@@ -22,9 +23,11 @@ function printInvoiceHtml(invoice: any) {
     .mb { margin-bottom: 4px; }
     .mt { margin-top: 8px; }
     .item-name { font-weight: 600; margin-top: 4px; }
+    .debt-badge { border: 1px solid #999; text-align: center; padding: 4px 0; font-weight: bold; margin: 6px 0; font-size: 13px; }
   </style></head><body>
     <div class="center bold title">iGourmet</div>
-    <div class="center mb">HÓA ĐƠN THANH TOÁN</div>
+    <div class="center mb">${isDebt ? 'PHIẾU GHI NỢ' : 'HÓA ĐƠN THANH TOÁN'}</div>
+    ${isDebt ? '<div class="debt-badge">*** CHƯA THANH TOÁN — GHI NỢ ***</div>' : ''}
     <div class="line"></div>
     <div class="flex mb"><span>Mã HĐ:</span><span>${invoice.invoice_code}</span></div>
     <div class="flex mb"><span>Bàn:</span><span class="bold">${invoice.table_name || invoice.table_number}</span></div>
@@ -42,6 +45,7 @@ function printInvoiceHtml(invoice: any) {
       <span>TỔNG CỘNG:</span>
       <span>${Number(invoice.final_amount).toLocaleString('vi-VN')}đ</span>
     </div>
+    ${isDebt ? '<div class="flex mt"><span>Trạng thái:</span><span class="bold">Chưa thanh toán (Ghi nợ)</span></div>' : ''}
     <div class="center mt" style="margin-top: 20px; font-style: italic">Cảm ơn quý khách và hẹn gặp lại!</div>
     <script>window.onload = function(){ window.print(); setTimeout(function(){ window.close() }, 500) }</script>
   </body></html>`

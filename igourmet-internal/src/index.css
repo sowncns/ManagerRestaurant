@@ -11,11 +11,43 @@ html, body {
 
 body {
   margin: 0;
-  background: #f8fafc;
+  background: #F3F4F6;
   color: #0f172a;
 }
 
-.dark .text-slate-900 {
+.bg-white {
+  background-color: #F8FAFC !important;
+}
+
+.bg-slate-50 {
+  background-color: #F3F4F6 !important;
+}
+
+.border-slate-200 {
+  border-color: #E5E7EB !important;
+}
+
+.shadow-sm {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+.bg-white {
+  background-color: #F8FAFC !important;
+}
+
+.bg-slate-50 {
+  background-color: #F3F4F6 !important;
+}
+
+.border-slate-200 {
+  border-color: #E5E7EB !important;
+}
+
+/* .dark .text-slate-900 {
   color: #e2e8f0 !important;
 }
 
@@ -37,4 +69,4 @@ body {
 
 .dark .shadow-xs {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
-}
+} */

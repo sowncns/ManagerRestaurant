@@ -420,9 +420,18 @@ async function getKiemMon(tableId) {
 // ---- Hoa don moi nhat ----
 async function getLatestInvoice(tableId) {
   const invoice = await repo.findLatestPaidInvoice(tableId);
-  if (!invoice) throw new NotFound("Không tìm thấy hóa đơn nào đã thanh toán cho bàn này");
-  const items = await repo.findCompletedItems(tableId);
-  return { ...invoice, items };
+  if (!invoice) throw new NotFound("Không tìm thấy hóa đơn gần nhất cho bàn này");
+  // Uu tien lay items tu snapshot JSON trong invoice (chinh xac, ke ca khi ghi no va ban da reset).
+  let items = [];
+  if (invoice.id) {
+    items = await repo.findInvoiceItems(invoice.id);
+  }
+  // Fallback ve query order_items neu snapshot trong invoice bi null/rong (hoa don cu).
+  if (!items.length) {
+    items = await repo.findCompletedItems(tableId);
+  }
+  const { items_snapshot, ...invoiceData } = invoice;
+  return { ...invoiceData, items };
 }
 
 const CLOSED_ORDER = new Set(["COMPLETED", "CANCELLED"]);

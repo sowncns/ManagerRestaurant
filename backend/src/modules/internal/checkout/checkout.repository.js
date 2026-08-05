@@ -201,18 +201,38 @@ exports.markInvoicePaidById = (client, invoiceId) =>
   client.query("UPDATE invoices SET status = 'PAID', paid_at = NOW() WHERE invoice_id = $1", [invoiceId]);
 
 // ---- Hoa don moi nhat ----
+// Tim hoa don gan nhat cua ban: ca PAID (tien mat) lan UNPAID (ghi no).
 exports.findLatestPaidInvoice = (tableId) =>
   pool
     .query(
       `SELECT i.invoice_id AS id, i.invoice_code, i.amount, i.amount AS final_amount, i.status, i.created_at, i.paid_at,
-              dt.table_number, dt.table_name
+              dt.table_number, dt.table_name, i.items AS items_snapshot
        FROM invoices i
        JOIN dining_tables dt ON i.table_id = dt.table_id
-       WHERE i.table_id = $1 AND i.status = 'PAID'
+       WHERE i.table_id = $1 AND i.status IN ('PAID', 'UNPAID')
        ORDER BY i.created_at DESC LIMIT 1`,
       [tableId]
     )
     .then((r) => r.rows[0]);
+
+// Lay items tu snapshot JSON trong invoice (chinh xac hon query order_items sau khi ban reset).
+exports.findInvoiceItems = (invoiceId) =>
+  pool
+    .query(
+      `SELECT items FROM invoices WHERE invoice_id = $1`,
+      [invoiceId]
+    )
+    .then((r) => {
+      const raw = r.rows[0]?.items;
+      if (!raw) return [];
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return parsed.map((it) => ({
+        item_name: it.name,
+        quantity: it.quantity,
+        unit_price: it.price,
+        total_price: it.line_total,
+      }));
+    });
 
 exports.findCompletedItems = (tableId) =>
   pool

@@ -35,11 +35,11 @@ export default function Layout() {
   const visibleNav = nav.filter((item) => staff && item.roles.includes(staff.role))
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased">
       {/* Desktop Sidebar (Minimalist Dark/Slate rail) */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs z-30">
+      <aside className="hidden md:flex w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shadow-xs z-30">
         {/* Brand Header */}
-        <div className="flex h-16 items-center justify-between px-5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex h-16 items-center justify-between px-5 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
               iG
@@ -67,7 +67,7 @@ export default function Layout() {
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium transition-all duration-150 select-none',
                   isActive
                     ? 'bg-emerald-50 text-emerald-700 font-semibold dark:bg-emerald-950/60 dark:text-emerald-400'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200',
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200',
                 )
               }
             >
@@ -107,7 +107,7 @@ export default function Layout() {
       {/* Main Container */}
       <div className="flex flex-1 flex-col h-full min-w-0 overflow-hidden">
         {/* Topbar ERP Header */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 px-4 md:px-6 backdrop-blur-md z-20">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-4 md:px-6 backdrop-blur-md z-20">
           {/* Mobile Menu Button & Title */}
           <div className="flex items-center gap-3">
             <button

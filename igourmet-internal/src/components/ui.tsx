@@ -10,9 +10,9 @@ export { DataTable } from './ui/data-table'
 // Legacy Table Component for backward compatibility with existing pages
 export function Table({ headers, children }: { headers: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow duration-150 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold text-xs uppercase tracking-wider">
+        <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-600 font-semibold text-xs uppercase tracking-wider">
           <tr>
             {headers.map((h) => (
               <th key={h} className="px-4 py-3 font-medium">
@@ -21,7 +21,7 @@ export function Table({ headers, children }: { headers: string[]; children: Reac
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">{children}</tbody>
+        <tbody className="divide-y divide-slate-100 [&>*:hover]:bg-slate-50 dark:divide-slate-800 text-slate-700 dark:text-slate-300">{children}</tbody>
       </table>
     </div>
   )

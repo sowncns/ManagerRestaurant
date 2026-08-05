@@ -113,7 +113,7 @@ export default function Dashboard() {
     <div className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Tổng quan hệ thống</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Tổng quan hệ thống</h1>
             <p className="mt-1 text-sm text-slate-500">
               {isSuperAdmin
                 ? 'Toàn bộ công ty trong hệ thống iGourmet'
@@ -220,7 +220,7 @@ export default function Dashboard() {
 
       {/* Bieu do doanh thu + mon ban chay (so lieu that) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-slate-900">Doanh thu 7 ngày (triệu ₫)</h2>
           <RevenueBars
             data={(data?.revenue_7d ?? []).map((d) => ({
@@ -230,7 +230,7 @@ export default function Dashboard() {
           />
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <Trophy size={18} className="text-amber-500" />
             <h2 className="text-lg font-semibold text-slate-900">Món bán chạy tháng này</h2>
@@ -264,10 +264,10 @@ export default function Dashboard() {
 }
 
 const TINTS: Record<string, string> = {
-  emerald: 'bg-emerald-50 text-emerald-600',
-  indigo: 'bg-indigo-50 text-indigo-600',
-  amber: 'bg-amber-50 text-amber-600',
-  rose: 'bg-rose-50 text-rose-600',
+  emerald: 'bg-emerald-100 text-emerald-700',
+  indigo: 'bg-indigo-100 text-indigo-700',
+  amber: 'bg-amber-100 text-amber-700',
+  rose: 'bg-rose-100 text-rose-700',
 }
 
 function KpiCard({
@@ -284,14 +284,14 @@ function KpiCard({
   growth?: number
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
       <div className="flex items-start justify-between">
         <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${TINTS[tint] ?? TINTS.indigo}`}>
           <Icon size={20} />
         </div>
         {growth !== undefined && <GrowthTag value={growth} />}
       </div>
-      <div className="mt-4 text-2xl font-semibold text-slate-900">{value}</div>
+      <div className="mt-4 text-2xl font-bold text-slate-900">{value}</div>
       <div className="mt-1 text-sm text-slate-500">{label}</div>
     </div>
   )
@@ -299,8 +299,8 @@ function KpiCard({
 
 function MiniStat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]">
+      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-200 text-slate-700">
         <Icon size={22} />
       </div>
       <div>
@@ -317,7 +317,7 @@ function GrowthTag({ value }: { value: number }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-        up ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+        up ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
       }`}
     >
       <Icon size={12} />
