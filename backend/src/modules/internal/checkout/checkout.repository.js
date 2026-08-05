@@ -248,10 +248,9 @@ exports.findCompletedItems = (tableId) =>
 exports.listInvoices = (currentUser, filters = {}) => {
   let query = `
     SELECT i.invoice_id AS id, i.invoice_code, i.amount, i.status, i.created_at, i.customer_id,
-           t.table_name, t.table_number, u.full_name AS customer_name, u.phone AS customer_phone
+           t.table_name, t.table_number
     FROM invoices i
     LEFT JOIN dining_tables t ON i.table_id = t.table_id
-    LEFT JOIN users u ON i.customer_id = u.id
     WHERE i.company_id = $1
   `;
   let values = [currentUser.company_id];
