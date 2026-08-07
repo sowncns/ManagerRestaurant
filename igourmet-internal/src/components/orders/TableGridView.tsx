@@ -3,52 +3,7 @@ import { Clock, User, Armchair } from 'lucide-react'
 import type { DiningTable, TableStatus } from '../../api/tables'
 import { cn } from '../../lib/cn'
 
-/**
- * Tạo mã bàn ngắn từ tên khu vực + số bàn.
- * Ví dụ: ("Tầng 1", "3") → "T1-3" | ("Sân Vườn", "2") → "SV-2" | ("VIP", "1") → "VIP-1"
- */
-function shortTableCode(sectionName: string | null, tableNumber: string): string {
-  const num = tableNumber.replace(/\D/g, '') // Chỉ lấy chữ số
-  if (!sectionName) return tableNumber
 
-  const s = sectionName.trim()
-
-  // Map cứng các tên khu vực phổ biến → prefix
-  const rules: Array<[RegExp, string | ((m: string) => string | undefined)]> = [
-    [/tầng\s*1/i, 'T1'],
-    [/tầng\s*2/i, 'T2'],
-    [/tầng\s*3/i, 'T3'],
-    [/tầng\s*4/i, 'T4'],
-    [/tầng\s*(\d+)/i, (m: string) => `T${m.match(/\d+/)?.[0]}`],
-    [/sân\s*vườn/i, 'SV'],
-    [/sân\s*thượng/i, 'ST'],
-    [/ngoài\s*trời/i, 'NT'],
-    [/vip/i, 'VIP'],
-    [/phòng\s*riêng/i, 'PR'],
-    [/phòng\s*(\d+)/i, (m: string) => `P${m.match(/\d+/)?.[0]}`],
-    [/hội\s*trường/i, 'HT'],
-    [/bar/i, 'BAR'],
-    [/tầng\s*trệt/i, 'TT'],
-    [/tầng\s*lửng/i, 'TL'],
-  ]
-
-  for (const [pattern, prefix] of rules) {
-    if (pattern.test(s)) {
-      const p = typeof prefix === 'function' ? (prefix(s) ?? '') : prefix
-      return num ? `${p}-${num}` : p
-    }
-  }
-
-  // Fallback: lấy chữ cái đầu của mỗi từ (bỏ dấu)
-  const initials = s
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/gi, 'd')
-    .split(/\s+/)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('')
-  return num ? `${initials}-${num}` : initials
-}
 
 interface CardMeta {
   label: string
@@ -174,8 +129,7 @@ export default function TableGridView({
               const disabled = t.status === 'DISABLE'
               const isPaid = t.status === 'SERVING' && t.active_order_id == null
 
-              // Tạo mã bàn ngắn: T1-3, SV-2, VIP-1 ... từ section_name + table_number
-              const tableName = shortTableCode(g.name, t.table_number)
+              const tableName = t.table_number
 
               return (
                 <button

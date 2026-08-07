@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { QrCode, RefreshCw, X, ClipboardList } from 'lucide-react'
+import { QrCode, RefreshCw, X, ClipboardList, FileText, ChevronDown, ChevronUp } from 'lucide-react'
 import type { DiningTable } from '../api/tables'
 import { ordersApi, type Order, type OrderItem } from '../api/orders'
-import { checkoutApi, type ScanResult, type CheckoutIntent, type PaymentMethod } from '../api/checkout'
+import { checkoutApi, type ScanResult, type CheckoutIntent, type PaymentMethod, type VatInfo } from '../api/checkout'
 import { printKiemMon } from '../lib/kiemMon'
 import { errMsg } from '../lib/errMsg'
 import { useRealtime } from '../lib/useRealtime'
@@ -75,6 +75,9 @@ export default function CheckoutPanel({
   const [paidInvoiceId, setPaidInvoiceId] = useState<number | null>(null)
   const [showQrModal, setShowQrModal] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState('')
+  const [vatInfo, setVatInfo] = useState<VatInfo>({ companyName: '', taxCode: '', address: '', email: '' })
+  const [vatSaved, setVatSaved] = useState(false)
+  const [vatOpen, setVatOpen] = useState(false)
 
   const loadOrder = useCallback(async () => {
     try {
@@ -115,6 +118,12 @@ export default function CheckoutPanel({
     void loadOrder()
     void loadIntent()
     void loadVoucher()
+    // Load VAT
+    checkoutApi.getTableVat(table.id)
+      .then((v) => {
+        if (v && v.email) { setVatInfo(v); setVatSaved(true) }
+      })
+      .catch(() => {})
   }, [loadOrder, loadIntent, loadVoucher])
 
   useRealtime('/internal/orders/kitchen/stream', loadOrder)
@@ -455,6 +464,61 @@ export default function CheckoutPanel({
           )}
 
 
+        </div>
+
+        {/* VAT */}
+        <div className="rounded-lg border border-slate-200 bg-white">
+          <button
+            onClick={() => setVatOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            <span className="flex items-center gap-1.5">
+              <FileText size={14} />
+              Xuất hóa đơn VAT
+              {vatSaved && <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">đã lưu</span>}
+            </span>
+            {vatOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {vatOpen && (
+            <div className="border-t border-slate-100 px-3 pb-3 pt-2">
+              <div className="flex flex-col gap-2">
+                <Input placeholder="Tên công ty" value={vatInfo.companyName} onChange={(e) => setVatInfo({ ...vatInfo, companyName: e.target.value })} />
+                <Input placeholder="Mã số thuế" value={vatInfo.taxCode} onChange={(e) => setVatInfo({ ...vatInfo, taxCode: e.target.value })} />
+                <Input placeholder="Địa chỉ" value={vatInfo.address} onChange={(e) => setVatInfo({ ...vatInfo, address: e.target.value })} />
+                <Input placeholder="Email nhận hóa đơn *" type="email" value={vatInfo.email} onChange={(e) => setVatInfo({ ...vatInfo, email: e.target.value })} />
+                <div className="flex gap-2">
+                  {vatSaved && (
+                    <Button
+                      variant="danger"
+                      className="flex-1"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true)
+                        try {
+                          await checkoutApi.saveTableVat(table.id, { companyName: '', taxCode: '', address: '', email: '' })
+                          setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
+                          setVatSaved(false)
+                          setVatOpen(false)
+                        } catch (e) { setErr(errMsg(e)) } finally { setBusy(false) }
+                      }}
+                    >Xóa</Button>
+                  )}
+                  <Button
+                    className="flex-1"
+                    disabled={busy || !vatInfo.email.trim()}
+                    onClick={async () => {
+                      setBusy(true)
+                      try {
+                        await checkoutApi.saveTableVat(table.id, vatInfo)
+                        setVatSaved(true)
+                        setVatOpen(false)
+                      } catch (e) { setErr(errMsg(e)) } finally { setBusy(false) }
+                    }}
+                  >Lưu</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tong tien */}

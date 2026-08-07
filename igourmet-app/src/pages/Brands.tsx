@@ -11,7 +11,7 @@ interface Company {
   email: string;
   phone: string;
   address: string;
-  image_url: string;
+  logo_url: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -89,9 +89,9 @@ const Brands = () => {
               className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer border border-gray-100 flex flex-col"
             >
               <div className="h-48 overflow-hidden relative bg-gray-100 flex items-center justify-center">
-                {brand.image_url ? (
+                {brand.logo_url  ? (
                   <img 
-                    src={brand.image_url} 
+                    src={brand.logo_url} 
                     alt={brand.name} 
                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
                     onError={(e) => {
@@ -137,8 +137,8 @@ const Brands = () => {
           <div className="relative bg-[#f9fafb] w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header Cover */}
             <div className="relative h-48 md:h-56 bg-gray-200 shrink-0">
-               {selectedBrand.image_url ? (
-                 <img src={selectedBrand.image_url} className="w-full h-full object-cover" alt="Cover" />
+               {selectedBrand.logo_url  ? (
+                 <img src={selectedBrand.logo_url} className="w-full h-full object-cover" alt="Cover" />
                ) : (
                  <div className="w-full h-full flex items-center justify-center">
                    <Building2 className="w-20 h-20 text-gray-300" />

@@ -3,8 +3,8 @@ const { z } = require("zod");
 
 const createInvoiceSchema = z.object({
   tableId: z.coerce.number().int().positive("Thiếu tableId"),
-  paymentMethod: z.enum(["CASH", "TRANSFER", "APP"], {
-    errorMap: () => ({ message: "paymentMethod phải là CASH, TRANSFER hoặc APP" }),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "APP", "DEBT"], {
+    errorMap: () => ({ message: "paymentMethod phải là CASH, TRANSFER, APP hoặc DEBT" }),
   }),
   customerId: z.coerce.number().int().positive().optional(),
 });

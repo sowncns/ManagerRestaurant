@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { ArrowLeft, RefreshCw, Zap, Grid3x3, Utensils, ShoppingCart } from 'lucide-react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { ArrowLeft, RefreshCw, Zap, Grid3x3, Utensils, ShoppingCart, QrCode, Camera, X, User, FileText } from 'lucide-react'
 import { tablesApi, type DiningTable } from '../api/tables'
 import { menuApi, type MenuItem, type Category } from '../api/menu'
 import { ordersApi, cancelApi, type Order, type OrderItem, type CancelReason } from '../api/orders'
+import { checkoutApi, type VatInfo } from '../api/checkout'
 
 import { errMsg } from '../lib/errMsg'
 import { Button, ErrorText, Modal, Input, Badge } from '../components/ui'
@@ -29,6 +30,21 @@ export default function OrdersPage() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Quét QR khách hàng (voucher / thành viên)
+  const [scanModalOpen, setScanModalOpen] = useState(false)
+  const [scanToken, setScanToken] = useState('')
+  const [scanRes, setScanRes] = useState('')
+  const [scanResult, setScanResult] = useState<{ name: string; type: 'MEMBER' | 'VOUCHER'; voucher?: string } | null>(null)
+  const [cameraOn, setCameraOn] = useState(false)
+  const [camError, setCamError] = useState('')
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const lastScanRef = useRef<{ code: string; at: number }>({ code: '', at: 0 })
+
+  // Hóa đơn VAT
+  const [vatModalOpen, setVatModalOpen] = useState(false)
+  const [vatInfo, setVatInfo] = useState<VatInfo>({ companyName: '', taxCode: '', address: '', email: '' })
+  const [vatSaved, setVatSaved] = useState(false)
+
   // Mobile Handheld Tab state for Waiter
   const [mobileTab, setMobileTab] = useState<MobileTab>('tables')
 
@@ -53,9 +69,11 @@ export default function OrdersPage() {
     loadTables()
   }, [loadTables])
 
-  // Đổi bàn -> switch mobile view sang menu
+  // Đổi bàn -> switch mobile view sang menu, load lại scan (voucher/thành viên) từ backend
   useEffect(() => {
     setCart({})
+    setScanResult(null)
+    setScanRes('')
     if (!table) {
       setOrder(null)
       setMobileTab('tables')
@@ -66,6 +84,30 @@ export default function OrdersPage() {
       .getActiveForTable(table.id)
       .then(setOrder)
       .catch(() => setOrder(null))
+    // Khôi phục thông tin khách đã quét QR (backend vẫn còn lưu)
+    checkoutApi.getTableVoucher(table.id)
+      .then((v) => {
+        if (v?.customerId) {
+          setScanResult({
+            name: v.customerName || String(v.customerId),
+            type: v.voucherCode ? 'VOUCHER' : 'MEMBER',
+            voucher: v.voucherCode || undefined,
+          })
+        }
+      })
+      .catch(() => { /* bỏ qua nếu chưa có */ })
+    // Load VAT đã lưu cho bàn
+    checkoutApi.getTableVat(table.id)
+      .then((v) => {
+        if (v && v.email) {
+          setVatInfo(v)
+          setVatSaved(true)
+        } else {
+          setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
+          setVatSaved(false)
+        }
+      })
+      .catch(() => { setVatInfo({ companyName: '', taxCode: '', address: '', email: '' }); setVatSaved(false) })
   }, [table])
 
   // Cart Stats
@@ -225,6 +267,70 @@ export default function OrdersPage() {
 
   const noteItemName = noteFor != null ? items.find((i) => i.menu_item_id === noteFor)?.name || '' : ''
 
+  async function handleScan(tokenStr: string) {
+    if (!tokenStr.trim() || !table) return
+    setBusy(true)
+    setScanRes('')
+    try {
+      const res = await checkoutApi.scan(table.id, tokenStr.trim())
+      const label = res.customerName || String(res.customerId)
+      setScanRes(`Đã thêm: ${label}${res.voucherApplied ? ' + Voucher' : ''}`)
+      setScanResult({
+        name: label,
+        type: res.voucherApplied ? 'VOUCHER' : 'MEMBER',
+        voucher: res.voucherApplied ?? undefined,
+      })
+      setScanToken('')
+      setCameraOn(false)
+    } catch (e: any) {
+      setScanRes(e.response?.data?.message || e.message || 'Lỗi quét mã')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Camera QR reader
+  useEffect(() => {
+    if (!cameraOn || !scanModalOpen) return
+    let cancelled = false
+    let readerInstance: any = null
+
+    async function start() {
+      try {
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        const reader = new BrowserMultiFormatReader()
+        readerInstance = reader
+        setCamError('')
+        await reader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current!,
+          (_result: any, _error: any) => {
+            if (cancelled) return
+            if (_result) {
+              const value = _result.getText().trim()
+              const now = Date.now()
+              if (!value || (value === lastScanRef.current.code && now - lastScanRef.current.at < 3000)) return
+              lastScanRef.current = { code: value, at: now }
+              void handleScan(value)
+            }
+          },
+        )
+      } catch (e: any) {
+        if (!cancelled) {
+          setCamError('Không truy cập được camera. (' + (e.message || '') + ')')
+          setCameraOn(false)
+        }
+      }
+    }
+
+    void start()
+
+    return () => {
+      cancelled = true
+      if (readerInstance) readerInstance.reset()
+    }
+  }, [cameraOn, scanModalOpen])
+
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] overflow-hidden">
       {/* Top Mobile Bar - Header */}
@@ -249,14 +355,57 @@ export default function OrdersPage() {
 
           {table && (
             <Badge variant="success" className="text-xs font-extrabold px-2.5 py-0.5">
-              {table.table_name || `Bàn ${table.table_number}`}
+              {table.table_number}
             </Badge>
           )}
         </div>
 
-        <Button variant="ghost" size="sm" onClick={loadTables} className="h-8 w-8 p-0">
-          <RefreshCw size={15} />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {scanResult && (
+            <div className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1">
+              <User size={11} className="text-slate-500 shrink-0" />
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 max-w-[90px] truncate">
+                {scanResult.name}
+              </span>
+              <span className={`shrink-0 text-[9px] font-bold px-1 py-0.5 rounded ${
+                scanResult.type === 'VOUCHER'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-violet-100 text-violet-700'
+              }`}>
+                {scanResult.type === 'VOUCHER' ? 'VCH' : 'MBR'}
+              </span>
+            </div>
+          )}
+          {table && (
+            <button
+              onClick={() => { setScanToken(''); setScanRes(''); setCameraOn(false); setScanModalOpen(true) }}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors active:scale-95 ${
+                scanResult
+                  ? 'bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+                  : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <QrCode size={13} />
+              <span>Quét</span>
+            </button>
+          )}
+          {table && (
+            <button
+              onClick={() => setVatModalOpen(true)}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors active:scale-95 ${
+                vatSaved
+                  ? 'bg-green-50 border border-green-300 text-green-700 hover:bg-green-100'
+                  : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <FileText size={13} />
+              <span>VAT</span>
+            </button>
+          )}
+          <Button variant="ghost" size="sm" onClick={loadTables} className="h-8 w-8 p-0">
+            <RefreshCw size={15} />
+          </Button>
+        </div>
       </div>
 
       <ErrorText>{err}</ErrorText>
@@ -425,6 +574,102 @@ export default function OrdersPage() {
           onClose={() => setCancelItem(null)}
           onSubmit={handleConfirmCancelItem}
         />
+      )}
+
+      {/* Modal Quét mã khách (Voucher / Thành viên) */}
+      {scanModalOpen && (
+        <Modal open title="Quét mã khách (Voucher / Thành viên)" onClose={() => { setScanModalOpen(false); setCameraOn(false); setScanRes('') }}>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Dán token QR từ app khách"
+                value={scanToken}
+                onChange={(e) => setScanToken(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void handleScan(scanToken)}
+                className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
+              />
+              <Button onClick={() => setCameraOn(!cameraOn)} variant={cameraOn ? 'danger' : 'secondary'}>
+                {cameraOn ? <X size={16} /> : <Camera size={16} />}
+              </Button>
+              <Button onClick={() => void handleScan(scanToken)} disabled={busy || !scanToken.trim()}>
+                Quét
+              </Button>
+            </div>
+            {cameraOn && (
+              <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-black/90 p-3">
+                <div className="relative w-full max-w-sm">
+                  <video ref={videoRef} className="aspect-square w-full rounded-md object-cover" muted playsInline />
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="h-3/5 w-3/5 rounded-lg border-2 border-white/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300">Đưa mã QR khách hàng vào khung vuông</p>
+              </div>
+            )}
+            {camError && <ErrorText>{camError}</ErrorText>}
+            {scanRes && (
+              <div className={scanRes.startsWith('Lỗi') || scanRes.startsWith('Không') ? 'text-red-600 font-medium text-sm' : 'text-emerald-600 font-medium text-sm'}>
+                {scanRes}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Hóa đơn VAT */}
+      {vatModalOpen && (
+        <Modal open title="Thông tin xuất hóa đơn VAT" onClose={() => setVatModalOpen(false)}>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!table || !vatInfo.email.trim()) return
+              setBusy(true)
+              try {
+                await checkoutApi.saveTableVat(table.id, vatInfo)
+                setVatSaved(true)
+                setVatModalOpen(false)
+              } catch (ex) {
+                alert(errMsg(ex))
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <Input label="Tên công ty" value={vatInfo.companyName} onChange={(e) => setVatInfo({ ...vatInfo, companyName: e.target.value })} />
+            <Input label="Mã số thuế" value={vatInfo.taxCode} onChange={(e) => setVatInfo({ ...vatInfo, taxCode: e.target.value })} />
+            <Input label="Địa chỉ" value={vatInfo.address} onChange={(e) => setVatInfo({ ...vatInfo, address: e.target.value })} />
+            <Input label="Email nhận hóa đơn *" type="email" required value={vatInfo.email} onChange={(e) => setVatInfo({ ...vatInfo, email: e.target.value })} />
+            <div className="flex gap-2 pt-1">
+              {vatSaved && (
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!table) return
+                    setBusy(true)
+                    try {
+                      await checkoutApi.saveTableVat(table.id, { companyName: '', taxCode: '', address: '', email: '' })
+                      setVatInfo({ companyName: '', taxCode: '', address: '', email: '' })
+                      setVatSaved(false)
+                      setVatModalOpen(false)
+                    } catch (ex) {
+                      alert(errMsg(ex))
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                >
+                  Xóa
+                </Button>
+              )}
+              <Button type="button" variant="secondary" onClick={() => setVatModalOpen(false)}>Hủy</Button>
+              <Button type="submit" disabled={busy || !vatInfo.email.trim()}>Lưu</Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   )

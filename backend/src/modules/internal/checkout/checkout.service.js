@@ -142,7 +142,7 @@ async function createInvoice(currentUser, tableId, paymentMethod, customerIdFrom
       await repo.markCustomerVoucherUsed(client, appliedCustomerVoucherId);
     }
 
-    // 6. Xu ly theo phuong thuc
+   
     if (paymentMethod === "TRANSFER") {
       // Chuyen khoan qua PayOS: tao ban ghi doi soat PENDING, sinh QR sau khi commit.
       const orderCode = paymentService.generateOrderCode();
@@ -232,7 +232,7 @@ async function createInvoice(currentUser, tableId, paymentMethod, customerIdFrom
   }
 }
 
-// ---- Checkout intent (Redis) ----
+
 async function getCheckoutIntent(tableId) {
   const data = await redisClient.get(`checkout_intent_table_${tableId}`);
   if (!data) return { hasIntent: false };
